@@ -1,0 +1,30 @@
+TIMETABLE - IT-B
+Week Schedule (Mon-Fri)
+
+Period,Time,Mon,Tue,Wed,Thu,Fri
+1,09:00-09:50,"Mathematics
+(Dinesh/103)","Programming Lab
+(Mahesh/104)","Physics
+(Suresh/106)","Chemistry
+(Suresh/104)",
+2,10:00-10:50,"Chemistry
+(Mahesh/102)","Physics
+(Suresh/104)",,"Mathematics
+(Ramesh/105)",
+3,11:00-11:50,"Chemistry
+(Mahesh/104)","DBMS
+(Suresh/107)","English
+(Suresh/101)","Programming
+(Rajesh/101)","Sports
+(Staff/106)"
+4,12:00-12:50,"Mathematics
+(Dinesh/105)",,"Yoga
+(Staff/107)",,"Sports
+(Staff/106)"
+5,02:00-02:50,,"Physics
+(Ramesh/102)","Chemistry Lab
+(Suresh/105)",,
+6,03:00-03:50,"Mathematics
+(Mahesh/105)","Physics Lab
+(Dinesh/104)","DBMS
+(Rajesh/102)",,

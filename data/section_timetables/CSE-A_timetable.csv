@@ -1,0 +1,29 @@
+TIMETABLE - CSE-A
+Week Schedule (Mon-Fri)
+
+Period,Time,Mon,Tue,Wed,Thu,Fri
+1,09:00-09:50,"Mathematics
+(Rajesh/103)","Physics
+(Mahesh/105)","Mathematics
+(Ramesh/101)","DBMS
+(Mahesh/105)","English
+(Ramesh/107)"
+2,10:00-10:50,,"Club
+(Staff/105)",,"DBMS
+(Rajesh/102)",
+3,11:00-11:50,,"Chemistry
+(Ramesh/103)","Mathematics
+(Mahesh/106)","Programming Lab
+(Ramesh/102)",
+4,12:00-12:50,,"Mathematics
+(Rajesh/102)","DBMS Lab
+(Ramesh/103)","Programming Lab
+(Ramesh/102)","DBMS
+(Mahesh/101)"
+5,02:00-02:50,,"Yoga
+(Staff/102)","Physics
+(Suresh/106)",,"Chemistry Lab
+(Suresh/107)"
+6,03:00-03:50,"NSS
+(Staff/101)",,"Physics
+(Mahesh/106)",,

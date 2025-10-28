@@ -1,0 +1,26 @@
+TIMETABLE – ECE-A
+
+Day/Period | 09:00–09:50 | 10:00–10:50 | 11:00–11:50 | 12:00–12:50 | 02:00–02:50 | 03:00–03:50
+------------------------------------------------------------------------------------------------------------------------
+Monday | Yoga
+(Staff/106) |  |  | Programming
+(Suresh/105) | Mathematics
+(Suresh/107) | 
+
+Tuesday | English
+(Mahesh/106) | NSS
+(Staff/103) | Club
+(Staff/107) | Club
+(Staff/107) |  | DBMS
+(Ramesh/102)
+
+Wednesday |  |  |  | Physics
+(Rajesh/106) |  | 
+
+Thursday |  | Sports
+(Staff/105) | Sports
+(Staff/105) |  |  | 
+
+Friday |  |  |  | Chemistry
+(Rajesh/104) |  | 
+

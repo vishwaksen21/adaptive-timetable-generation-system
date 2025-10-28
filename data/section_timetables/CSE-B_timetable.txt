@@ -1,0 +1,26 @@
+TIMETABLE – CSE-B
+
+Day/Period | 09:00–09:50 | 10:00–10:50 | 11:00–11:50 | 12:00–12:50 | 02:00–02:50 | 03:00–03:50
+------------------------------------------------------------------------------------------------------------------------
+Monday | Mathematics
+(Suresh/101) |  |  |  |  | Physics
+(Rajesh/107)
+
+Tuesday | Yoga
+(Staff/104) | Club
+(Staff/107) | Club
+(Staff/107) |  |  | 
+
+Wednesday |  | Chemistry
+(Suresh/101) |  | Sports
+(Staff/105) | Sports
+(Staff/105) | 
+
+Thursday | DBMS
+(Dinesh/105) |  |  |  |  | Programming
+(Rajesh/102)
+
+Friday |  | English
+(Rajesh/106) |  | NSS
+(Staff/104) |  | 
+

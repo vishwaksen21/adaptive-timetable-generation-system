@@ -1,0 +1,32 @@
+TIMETABLE – CSE-A
+
+Day/Period | 09:00–09:50 | 10:00–10:50 | 11:00–11:50 | 12:00–12:50 | 02:00–02:50 | 03:00–03:50
+------------------------------------------------------------------------------------------------------------------------
+Monday |  | Chemistry Lab
+(Mahesh/102) | Chemistry Lab
+(Mahesh/102) | Physics
+(Dinesh/105) | English
+(Ramesh/105) | Programming
+(Rajesh/106)
+
+Tuesday |  | Physics Lab
+(Suresh/105) | Physics Lab
+(Suresh/105) |  | Sports
+(Staff/106) | Sports
+(Staff/106)
+
+Wednesday |  |  |  |  | Yoga
+(Staff/105) | 
+
+Thursday |  | Programming Lab
+(Ramesh/104) | Programming Lab
+(Ramesh/104) | NSS
+(Staff/102) | Mathematics
+(Suresh/102) | 
+
+Friday | Club
+(Staff/103) | Club
+(Staff/103) | DBMS
+(Mahesh/102) | Chemistry
+(Ramesh/104) |  | 
+

@@ -1,0 +1,26 @@
+TIMETABLE – IT-A
+
+Day/Period | 09:00–09:50 | 10:00–10:50 | 11:00–11:50 | 12:00–12:50 | 02:00–02:50 | 03:00–03:50
+------------------------------------------------------------------------------------------------------------------------
+Monday |  |  |  | Mathematics
+(Dinesh/101) | English
+(Rajesh/102) | Yoga
+(Staff/104)
+
+Tuesday |  |  |  |  | NSS
+(Staff/106) | 
+
+Wednesday | Programming
+(Dinesh/105) |  |  | Sports
+(Staff/102) | Sports
+(Staff/102) | Chemistry
+(Mahesh/102)
+
+Thursday | Club
+(Staff/101) | Club
+(Staff/101) |  |  | Physics
+(Rajesh/105) | 
+
+Friday |  |  |  |  | DBMS
+(Ramesh/106) | 
+

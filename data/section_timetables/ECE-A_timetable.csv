@@ -1,0 +1,31 @@
+TIMETABLE - ECE-A
+Week Schedule (Mon-Fri)
+
+Period,Time,Mon,Tue,Wed,Thu,Fri
+1,09:00-09:50,"DBMS
+(Mahesh/106)","Mathematics
+(Dinesh/107)","Chemistry
+(Rajesh/106)","DBMS
+(Mahesh/101)",
+2,10:00-10:50,"Yoga
+(Staff/105)",,"Programming Lab
+(Rajesh/102)","Club
+(Staff/104)","DBMS
+(Mahesh/102)"
+3,11:00-11:50,,,"Physics
+(Suresh/105)","DBMS Lab
+(Rajesh/104)","Chemistry Lab
+(Ramesh/102)"
+4,12:00-12:50,,"Sports
+(Staff/103)",,"DBMS Lab
+(Rajesh/104)","Chemistry Lab
+(Ramesh/102)"
+5,02:00-02:50,"Chemistry
+(Ramesh/104)","Sports
+(Staff/103)","Mathematics
+(Dinesh/106)","Physics Lab
+(Ramesh/101)","Physics
+(Dinesh/107)"
+6,03:00-03:50,,"Mathematics
+(Ramesh/101)",,"Programming
+(Ramesh/107)",
