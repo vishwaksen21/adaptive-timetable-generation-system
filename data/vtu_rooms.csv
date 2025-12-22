@@ -1,0 +1,17 @@
+RoomNumber,Name,Type,Capacity,Building
+501,Classroom 501,classroom,60,CSE Block
+502,Classroom 502,classroom,60,CSE Block
+503,Classroom 503,classroom,60,CSE Block
+504,Classroom 504,classroom,60,CSE Block
+505,Classroom 505,classroom,60,CSE Block
+506,Classroom 506,classroom,60,CSE Block
+CL1,Computer Lab 1,computer_lab,30,CSE Block
+CL2,Computer Lab 2,computer_lab,30,CSE Block
+CL3,Computer Lab 3,computer_lab,30,CSE Block
+CL4,Computer Lab 4,computer_lab,30,CSE Block
+EL1,Electronics Lab 1,electronics_lab,30,ECE Block
+EL2,Electronics Lab 2,electronics_lab,30,ECE Block
+SH1,Seminar Hall 1,seminar_hall,100,Main Block
+SH2,Seminar Hall 2,seminar_hall,80,Main Block
+AR1,Yoga Hall,activity_room,50,Sports Block
+AR2,Club Room,activity_room,40,Student Center

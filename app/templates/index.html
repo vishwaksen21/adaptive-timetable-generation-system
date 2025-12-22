@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VTU Timetable Generation System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --vtu-primary: #1a237e;
+            --vtu-secondary: #303f9f;
+            --vtu-accent: #ff5722;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .header-section {
+            background: var(--vtu-primary);
+            color: white;
+            padding: 20px 0;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        
+        .header-section h1 {
+            font-weight: 700;
+            font-size: 2rem;
+        }
+        
+        .header-section .subtitle {
+            opacity: 0.9;
+            font-size: 0.95rem;
+        }
+        
+        .vtu-logo {
+            width: 80px;
+            height: 80px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: var(--vtu-primary);
+            font-size: 1.2rem;
+        }
+        
+        .main-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .section-title {
+            color: var(--vtu-primary);
+            font-weight: 600;
+            border-bottom: 3px solid var(--vtu-accent);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .form-select, .form-control {
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 12px 15px;
+            transition: all 0.3s;
+        }
+        
+        .form-select:focus, .form-control:focus {
+            border-color: var(--vtu-secondary);
+            box-shadow: 0 0 0 3px rgba(48, 63, 159, 0.2);
+        }
+        
+        .btn-generate {
+            background: linear-gradient(135deg, var(--vtu-primary), var(--vtu-secondary));
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-radius: 10px;
+            transition: all 0.3s;
+        }
+        
+        .btn-generate:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(26, 35, 126, 0.4);
+        }
+        
+        .checkbox-section {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .form-check-input:checked {
+            background-color: var(--vtu-secondary);
+            border-color: var(--vtu-secondary);
+        }
+        
+        .info-card {
+            background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .info-card h5 {
+            color: var(--vtu-primary);
+            margin-bottom: 15px;
+        }
+        
+        .info-card ul {
+            margin-bottom: 0;
+        }
+        
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .loading-content {
+            text-align: center;
+            color: white;
+        }
+        
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 5px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .result-section {
+            display: none;
+        }
+        
+        .result-card {
+            background: #e8f5e9;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .result-card.error {
+            background: #ffebee;
+        }
+        
+        .stat-box {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .stat-box .number {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--vtu-primary);
+        }
+        
+        .stat-box .label {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        /* Timetable Styles */
+        .timetable-container {
+            overflow-x: auto;
+            margin-top: 20px;
+        }
+        
+        .timetable {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+        
+        .timetable th, .timetable td {
+            border: 1px solid #dee2e6;
+            padding: 8px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        
+        .timetable th {
+            background: var(--vtu-primary);
+            color: white;
+            font-weight: 600;
+        }
+        
+        .timetable th.time-header {
+            background: var(--vtu-secondary);
+            min-width: 90px;
+        }
+        
+        .timetable th.break-header {
+            background: #ff9800;
+            color: white;
+        }
+        
+        .timetable td.day-cell {
+            background: #e8eaf6;
+            font-weight: 600;
+            color: var(--vtu-primary);
+        }
+        
+        .timetable td.break-cell {
+            background: #fff3e0;
+            color: #e65100;
+            font-style: italic;
+        }
+        
+        .class-entry {
+            background: #e3f2fd;
+            border-radius: 5px;
+            padding: 5px;
+            margin: 2px 0;
+        }
+        
+        .class-entry.lab {
+            background: #e8f5e9;
+        }
+        
+        .class-entry.tyl, .class-entry.\39 lpa {
+            background: #fce4ec;
+        }
+        
+        .class-entry.yoga, .class-entry.club {
+            background: #fff3e0;
+        }
+        
+        .class-entry .subject {
+            font-weight: 600;
+            color: #1565c0;
+        }
+        
+        .class-entry .details {
+            font-size: 0.75rem;
+            color: #666;
+        }
+        
+        .tab-content {
+            padding-top: 20px;
+        }
+        
+        .nav-tabs .nav-link {
+            color: var(--vtu-primary);
+            font-weight: 600;
+        }
+        
+        .nav-tabs .nav-link.active {
+            background: var(--vtu-primary);
+            color: white;
+            border-color: var(--vtu-primary);
+        }
+        
+        .export-buttons .btn {
+            margin: 5px;
+        }
+        
+        footer {
+            background: var(--vtu-primary);
+            color: white;
+            padding: 20px 0;
+            margin-top: 50px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <h4>Generating Timetable...</h4>
+            <p>Applying DSA-based scheduling algorithm</p>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <div class="header-section">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-auto">
+                    <div class="vtu-logo">VTU</div>
+                </div>
+                <div class="col">
+                    <h1><i class="fas fa-calendar-alt me-2"></i>VTU Timetable Generation System</h1>
+                    <p class="subtitle mb-0">DSA-Based Adaptive Scheduling for AI&DS / CSDS Departments</p>
+                    <p class="subtitle mb-0"><small>Indian Standard Time (IST) | Academic Year 2025-2026</small></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container">
+        <!-- Configuration Section -->
+        <div class="main-card" id="configSection">
+            <h3 class="section-title"><i class="fas fa-cog me-2"></i>Configuration</h3>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="info-card">
+                        <h5><i class="fas fa-info-circle me-2"></i>Time Slots (IST)</h5>
+                        <ul class="list-unstyled mb-0">
+                            <li>📚 Period 1: 08:00 - 09:00</li>
+                            <li>📚 Period 2: 09:00 - 10:00</li>
+                            <li>☕ Short Break: 10:00 - 10:20</li>
+                            <li>📚 Period 3: 10:20 - 11:20</li>
+                            <li>📚 Period 4: 11:20 - 12:20</li>
+                            <li>🍽️ Lunch Break: 12:20 - 13:00</li>
+                            <li>📚 Period 5: 13:00 - 14:00</li>
+                            <li>📚 Period 6: 14:00 - 15:00</li>
+                            <li>📚 Period 7: 15:00 - 16:00</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="info-card">
+                        <h5><i class="fas fa-building me-2"></i>Branch Structure</h5>
+                        <ul class="list-unstyled mb-0">
+                            <li><strong>AI & Data Science (AI&DS):</strong></li>
+                            <li>&nbsp;&nbsp;&nbsp;• Section A (AIDS-A) with batches A1, A2, A3</li>
+                            <li>&nbsp;&nbsp;&nbsp;• Section B (AIDS-B) with batches B1, B2, B3</li>
+                            <li><strong>Computer Science & DS (CSDS):</strong></li>
+                            <li>&nbsp;&nbsp;&nbsp;• Section C (CSDS-C) with batches C1, C2, C3</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <form id="configForm">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Semester</label>
+                        <select class="form-select" id="semester" name="semester" required>
+                            <option value="">Select Semester</option>
+                            <option value="3">3rd Semester</option>
+                            <option value="4">4th Semester</option>
+                            <option value="5" selected>5th Semester</option>
+                            <option value="6">6th Semester</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Branch</label>
+                        <select class="form-select" id="branch" name="branch" required onchange="updateSections()">
+                            <option value="">Select Branch</option>
+                            <option value="AIDS" selected>AI & Data Science</option>
+                            <option value="CSDS">Computer Science & DS</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Academic Year</label>
+                        <select class="form-select" id="academicYear" name="academicYear" required>
+                            <option value="2025-2026" selected>2025-2026</option>
+                            <option value="2024-2025">2024-2025</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Algorithm</label>
+                        <select class="form-select" id="algorithm" name="algorithm">
+                            <option value="constraint_satisfaction" selected>Constraint Satisfaction (CSP)</option>
+                            <option value="genetic">Genetic Algorithm</option>
+                            <option value="hybrid">Hybrid (CSP + GA)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row mt-4">
+                    <div class="col-md-6">
+                        <label class="form-label">Sections to Generate</label>
+                        <div class="checkbox-section" id="sectionsCheckbox">
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" id="sectionA" value="AIDS-A" checked>
+                                <label class="form-check-label" for="sectionA">AIDS-A</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="checkbox" id="sectionB" value="AIDS-B" checked>
+                                <label class="form-check-label" for="sectionB">AIDS-B</label>
+                            </div>
+                            <div class="form-check form-check-inline" id="sectionCContainer" style="display: none;">
+                                <input class="form-check-input" type="checkbox" id="sectionC" value="CSDS-C">
+                                <label class="form-check-label" for="sectionC">CSDS-C</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Options</label>
+                        <div class="checkbox-section">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="debugMode">
+                                <label class="form-check-label" for="debugMode">Debug Mode (Log constraints)</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="preferMorningLabs" checked>
+                                <label class="form-check-label" for="preferMorningLabs">Prefer morning slots for labs</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-center mt-4">
+                    <button type="submit" class="btn btn-primary btn-generate">
+                        <i class="fas fa-magic me-2"></i>Generate Timetable
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Results Section -->
+        <div class="result-section" id="resultSection">
+            <div class="main-card">
+                <h3 class="section-title"><i class="fas fa-check-circle me-2"></i>Generation Results</h3>
+                
+                <div class="result-card" id="resultCard">
+                    <div class="row" id="statsRow">
+                        <div class="col-md-2">
+                            <div class="stat-box">
+                                <div class="number" id="statTime">0</div>
+                                <div class="label">Gen. Time (s)</div>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="stat-box">
+                                <div class="number" id="statBacktrack">0</div>
+                                <div class="label">Backtracks</div>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="stat-box">
+                                <div class="number" id="statAttempts">0</div>
+                                <div class="label">Attempts</div>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="stat-box">
+                                <div class="number" id="statScore">0</div>
+                                <div class="label">Quality Score</div>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="stat-box">
+                                <div class="number" id="statHard">0</div>
+                                <div class="label">Hard Violations</div>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="stat-box">
+                                <div class="number" id="statSoft">0</div>
+                                <div class="label">Soft Violations</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Export Buttons -->
+                <div class="export-buttons text-center mb-4">
+                    <button class="btn btn-success" onclick="exportJSON()">
+                        <i class="fas fa-file-code me-1"></i>Export JSON
+                    </button>
+                    <button class="btn btn-info" onclick="exportCSV()">
+                        <i class="fas fa-file-csv me-1"></i>Export CSV
+                    </button>
+                    <button class="btn btn-danger" onclick="printTimetable()">
+                        <i class="fas fa-print me-1"></i>Print View
+                    </button>
+                </div>
+
+                <!-- Timetable Tabs -->
+                <ul class="nav nav-tabs" id="timetableTabs" role="tablist">
+                    <!-- Tabs will be added dynamically -->
+                </ul>
+                <div class="tab-content" id="timetableTabContent">
+                    <!-- Content will be added dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container text-center">
+            <p class="mb-0">VTU Timetable Generation System | DSA-Based Adaptive Scheduling</p>
+            <p class="mb-0"><small>Developed for AI&DS and CSDS Departments | © 2025</small></p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentTimetableId = null;
+        let currentData = null;
+
+        function updateSections() {
+            const branch = document.getElementById('branch').value;
+            const sectionAContainer = document.getElementById('sectionA').parentElement;
+            const sectionBContainer = document.getElementById('sectionB').parentElement;
+            const sectionCContainer = document.getElementById('sectionCContainer');
+            
+            if (branch === 'AIDS') {
+                sectionAContainer.style.display = 'inline-block';
+                sectionBContainer.style.display = 'inline-block';
+                sectionCContainer.style.display = 'none';
+                document.getElementById('sectionA').checked = true;
+                document.getElementById('sectionB').checked = true;
+                document.getElementById('sectionC').checked = false;
+            } else if (branch === 'CSDS') {
+                sectionAContainer.style.display = 'none';
+                sectionBContainer.style.display = 'none';
+                sectionCContainer.style.display = 'inline-block';
+                document.getElementById('sectionA').checked = false;
+                document.getElementById('sectionB').checked = false;
+                document.getElementById('sectionC').checked = true;
+            }
+        }
+
+        function getSelectedSections() {
+            const sections = [];
+            if (document.getElementById('sectionA').checked) sections.push('AIDS-A');
+            if (document.getElementById('sectionB').checked) sections.push('AIDS-B');
+            if (document.getElementById('sectionC').checked) sections.push('CSDS-C');
+            return sections;
+        }
+
+        document.getElementById('configForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const semester = document.getElementById('semester').value;
+            const branch = document.getElementById('branch').value;
+            const algorithm = document.getElementById('algorithm').value;
+            const debugMode = document.getElementById('debugMode').checked;
+            const sections = getSelectedSections();
+
+            if (sections.length === 0) {
+                alert('Please select at least one section');
+                return;
+            }
+
+            // Show loading
+            document.getElementById('loadingOverlay').style.display = 'flex';
+
+            try {
+                const response = await fetch('/api/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        semester: parseInt(semester),
+                        branch: branch,
+                        sections: sections,
+                        algorithm: algorithm,
+                        debug_mode: debugMode
+                    })
+                });
+
+                // Check if response is ok before parsing JSON
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Server error:', response.status, errorText);
+                    throw new Error(`Server error ${response.status}: ${errorText.substring(0, 200)}`);
+                }
+
+                const data = await response.json();
+                
+                // Check if server returned an error
+                if (data.error) {
+                    console.error('API error:', data.error, data.traceback);
+                    throw new Error(data.error);
+                }
+                
+                currentData = data;
+                currentTimetableId = data.timetable_id;
+
+                // Update stats
+                document.getElementById('statTime').textContent = data.generation_time;
+                document.getElementById('statBacktrack').textContent = data.statistics.backtrack_count;
+                document.getElementById('statAttempts').textContent = data.statistics.total_attempts;
+                document.getElementById('statScore').textContent = data.validation.score;
+                document.getElementById('statHard').textContent = data.validation.hard_violations;
+                document.getElementById('statSoft').textContent = data.validation.soft_violations;
+
+                // Update result card color
+                const resultCard = document.getElementById('resultCard');
+                if (data.success && data.validation.hard_violations === 0) {
+                    resultCard.className = 'result-card';
+                } else {
+                    resultCard.className = 'result-card error';
+                }
+
+                // Build timetable tabs
+                buildTimetableTabs(data.sections_data);
+
+                // Show results
+                document.getElementById('resultSection').style.display = 'block';
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error generating timetable: ' + error.message);
+            } finally {
+                document.getElementById('loadingOverlay').style.display = 'none';
+            }
+        });
+
+        function buildTimetableTabs(sectionsData) {
+            const tabsContainer = document.getElementById('timetableTabs');
+            const contentContainer = document.getElementById('timetableTabContent');
+            
+            tabsContainer.innerHTML = '';
+            contentContainer.innerHTML = '';
+
+            let isFirst = true;
+            for (const [section, data] of Object.entries(sectionsData)) {
+                // Create tab
+                const tab = document.createElement('li');
+                tab.className = 'nav-item';
+                tab.innerHTML = `
+                    <button class="nav-link ${isFirst ? 'active' : ''}" 
+                            id="tab-${section}" 
+                            data-bs-toggle="tab" 
+                            data-bs-target="#content-${section}" 
+                            type="button">
+                        ${section}
+                    </button>
+                `;
+                tabsContainer.appendChild(tab);
+
+                // Create content
+                const content = document.createElement('div');
+                content.className = `tab-pane fade ${isFirst ? 'show active' : ''}`;
+                content.id = `content-${section}`;
+                content.innerHTML = buildTimetableHTML(data);
+                contentContainer.appendChild(content);
+
+                isFirst = false;
+            }
+        }
+
+        function buildTimetableHTML(data) {
+            const times = ['08:00-09:00', '09:00-10:00', 'SHORT BREAK', '10:20-11:20', '11:20-12:20', 'LUNCH', '13:00-14:00', '14:00-15:00', '15:00-16:00'];
+            const periodMap = [1, 2, null, 3, 4, null, 5, 6, 7];
+            
+            let html = `
+                <div class="timetable-container">
+                    <h4 class="text-center mb-3">TIMETABLE - ${data.section} (Semester ${document.getElementById('semester').value})</h4>
+                    <table class="timetable">
+                        <thead>
+                            <tr>
+                                <th>Day / Time</th>
+            `;
+
+            // Add time headers
+            times.forEach((time, index) => {
+                if (time === 'SHORT BREAK') {
+                    html += `<th class="break-header">☕ Break<br><small>10:00-10:20</small></th>`;
+                } else if (time === 'LUNCH') {
+                    html += `<th class="break-header">🍽️ Lunch<br><small>12:20-13:00</small></th>`;
+                } else {
+                    html += `<th class="time-header">${time}</th>`;
+                }
+            });
+
+            html += `</tr></thead><tbody>`;
+
+            // Add rows for each day
+            data.days.forEach(day => {
+                html += `<tr><td class="day-cell">${day.name}</td>`;
+                
+                times.forEach((time, colIndex) => {
+                    if (time === 'SHORT BREAK' || time === 'LUNCH') {
+                        html += `<td class="break-cell">${time === 'SHORT BREAK' ? '☕' : '🍽️'}</td>`;
+                    } else {
+                        const periodIndex = periodMap[colIndex] - 1;
+                        const slot = day.slots[periodIndex];
+                        
+                        if (slot && slot.classes && slot.classes.length > 0) {
+                            html += `<td>`;
+                            slot.classes.forEach(cls => {
+                                const typeClass = cls.subject_type || 'theory';
+                                html += `
+                                    <div class="class-entry ${typeClass}">
+                                        <div class="subject">${cls.subject_short}</div>
+                                        <div class="details">
+                                            ${cls.faculty_name} / ${cls.room}
+                                            ${cls.batch ? `<br><small>(${cls.batch})</small>` : ''}
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                            html += `</td>`;
+                        } else {
+                            html += `<td>-</td>`;
+                        }
+                    }
+                });
+                
+                html += `</tr>`;
+            });
+
+            html += `</tbody></table></div>`;
+            return html;
+        }
+
+        function exportJSON() {
+            if (!currentTimetableId) return;
+            window.open(`/api/export/${currentTimetableId}/json`, '_blank');
+        }
+
+        function exportCSV() {
+            if (!currentTimetableId) return;
+            window.open(`/api/export/${currentTimetableId}/csv`, '_blank');
+        }
+
+        function printTimetable() {
+            if (!currentTimetableId) return;
+            const sections = getSelectedSections();
+            if (sections.length > 0) {
+                window.open(`/print/${currentTimetableId}/${sections[0]}`, '_blank');
+            }
+        }
+
+        // Initialize
+        updateSections();
+    </script>
+</body>
+</html>

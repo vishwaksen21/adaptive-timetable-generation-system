@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Print Timetable - {{ section }}</title>
+    <style>
+        @page {
+            size: A4 landscape;
+            margin: 10mm;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Times New Roman', Times, serif;
+            font-size: 10pt;
+            padding: 10mm;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #000;
+            padding-bottom: 10px;
+        }
+        
+        .header h1 {
+            font-size: 16pt;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .header h2 {
+            font-size: 14pt;
+            font-weight: bold;
+            margin-bottom: 3px;
+        }
+        
+        .header p {
+            font-size: 10pt;
+            margin: 2px 0;
+        }
+        
+        .metadata {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 9pt;
+        }
+        
+        .timetable {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 8pt;
+        }
+        
+        .timetable th, .timetable td {
+            border: 1px solid #000;
+            padding: 5px 3px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        
+        .timetable th {
+            background: #e0e0e0;
+            font-weight: bold;
+            font-size: 8pt;
+        }
+        
+        .timetable th.time-header {
+            background: #d0d0d0;
+            min-width: 70px;
+        }
+        
+        .timetable th.break-header {
+            background: #fff3e0;
+            min-width: 40px;
+            font-size: 7pt;
+        }
+        
+        .timetable td.day-cell {
+            background: #f5f5f5;
+            font-weight: bold;
+            min-width: 80px;
+        }
+        
+        .timetable td.break-cell {
+            background: #fff8e1;
+            font-size: 7pt;
+            font-style: italic;
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+        }
+        
+        .class-entry {
+            padding: 2px;
+            margin: 1px 0;
+            font-size: 8pt;
+        }
+        
+        .class-entry .subject {
+            font-weight: bold;
+            font-size: 9pt;
+        }
+        
+        .class-entry .details {
+            font-size: 7pt;
+            color: #333;
+        }
+        
+        .class-entry.lab {
+            background: #e8f5e9;
+        }
+        
+        .class-entry.tyl, .class-entry.\39 lpa {
+            background: #fce4ec;
+        }
+        
+        .class-entry.yoga, .class-entry.club {
+            background: #fff3e0;
+        }
+        
+        .legend {
+            margin-top: 15px;
+            font-size: 8pt;
+        }
+        
+        .legend table {
+            border-collapse: collapse;
+        }
+        
+        .legend td {
+            padding: 3px 8px;
+            border: 1px solid #ccc;
+        }
+        
+        .footer {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 8pt;
+            border-top: 1px solid #000;
+            padding-top: 10px;
+        }
+        
+        .signatures {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 30px;
+            font-size: 9pt;
+        }
+        
+        .signature-box {
+            text-align: center;
+            width: 200px;
+        }
+        
+        .signature-line {
+            border-top: 1px solid #000;
+            margin-top: 40px;
+            padding-top: 5px;
+        }
+        
+        @media print {
+            body {
+                padding: 0;
+            }
+            
+            .no-print {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="no-print" style="margin-bottom: 20px; text-align: center;">
+        <button onclick="window.print()" style="padding: 10px 30px; font-size: 14pt; cursor: pointer;">
+            🖨️ Print Timetable
+        </button>
+        <button onclick="window.close()" style="padding: 10px 30px; font-size: 14pt; cursor: pointer; margin-left: 10px;">
+            ✖️ Close
+        </button>
+    </div>
+
+    <div class="header">
+        <h1>VISVESVARAYA TECHNOLOGICAL UNIVERSITY</h1>
+        <h2>Department of Computer Science & Engineering (AI&DS / CSDS)</h2>
+        <p><strong>CLASS TIMETABLE - {{ section }} | Semester {{ semester }}</strong></p>
+        <p>Academic Year: 2025-2026 | Effective From: December 2025</p>
+    </div>
+
+    <div class="metadata">
+        <span><strong>Section:</strong> {{ section }}</span>
+        <span><strong>Semester:</strong> {{ semester }}</span>
+        <span><strong>Working Days:</strong> Monday - Saturday</span>
+        <span><strong>Periods:</strong> 7 per day</span>
+    </div>
+
+    <table class="timetable">
+        <thead>
+            <tr>
+                <th>Day / Time</th>
+                <th class="time-header">I<br>08:00-09:00</th>
+                <th class="time-header">II<br>09:00-10:00</th>
+                <th class="break-header">Break<br>10:00-10:20</th>
+                <th class="time-header">III<br>10:20-11:20</th>
+                <th class="time-header">IV<br>11:20-12:20</th>
+                <th class="break-header">Lunch<br>12:20-13:00</th>
+                <th class="time-header">V<br>13:00-14:00</th>
+                <th class="time-header">VI<br>14:00-15:00</th>
+                <th class="time-header">VII<br>15:00-16:00</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in matrix %}
+            <tr>
+                <td class="day-cell">{{ row.day }}</td>
+                
+                {% for i in range(9) %}
+                    {% if i == 2 %}
+                    <td class="break-cell">S<br>H<br>O<br>R<br>T</td>
+                    {% elif i == 5 %}
+                    <td class="break-cell">L<br>U<br>N<br>C<br>H</td>
+                    {% else %}
+                        {% set period_idx = i %}
+                        {% if i > 2 %}{% set period_idx = i - 1 %}{% endif %}
+                        {% if i > 5 %}{% set period_idx = i - 2 %}{% endif %}
+                        
+                        {% if period_idx < row.periods|length %}
+                            {% set slot = row.periods[period_idx] %}
+                            {% if slot.is_empty %}
+                            <td>-</td>
+                            {% else %}
+                            <td>
+                                {% for entry in slot.entries %}
+                                <div class="class-entry {{ entry.type }}">
+                                    <div class="subject">{{ entry.subject }}</div>
+                                    <div class="details">
+                                        {{ entry.faculty }}/{{ entry.room }}
+                                        {% if entry.batch %}({{ entry.batch }}){% endif %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </td>
+                            {% endif %}
+                        {% else %}
+                        <td>-</td>
+                        {% endif %}
+                    {% endif %}
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="legend">
+        <strong>Subject Codes:</strong>
+        <table style="margin-top: 5px;">
+            <tr>
+                <td><strong>CN</strong> - Computer Networks</td>
+                <td><strong>TOC</strong> - Theory of Computation</td>
+                <td><strong>SEPM</strong> - Software Engg. & PM</td>
+                <td><strong>FSD</strong> - Full Stack Development</td>
+            </tr>
+            <tr>
+                <td><strong>DV</strong> - Data Visualization</td>
+                <td><strong>RM</strong> - Research Methodology</td>
+                <td><strong>ES</strong> - Environmental Studies</td>
+                <td><strong>CNL</strong> - CN Laboratory</td>
+            </tr>
+            <tr>
+                <td><strong>DVL</strong> - DV Laboratory</td>
+                <td><strong>FSDL</strong> - FSD Laboratory</td>
+                <td><strong>MP</strong> - Mini Project</td>
+                <td><strong>TYL</strong> - Training (Technical/Aptitude)</td>
+            </tr>
+            <tr>
+                <td><strong>9LPA</strong> - Placement Training</td>
+                <td><strong>YOGA</strong> - Yoga</td>
+                <td><strong>CLUB</strong> - Club Activity</td>
+                <td></td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="signatures">
+        <div class="signature-box">
+            <div class="signature-line">Class Coordinator</div>
+        </div>
+        <div class="signature-box">
+            <div class="signature-line">Time Table Committee</div>
+        </div>
+        <div class="signature-box">
+            <div class="signature-line">HOD (CSE)</div>
+        </div>
+        <div class="signature-box">
+            <div class="signature-line">Principal</div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>Generated by VTU Timetable System | DSA-Based Adaptive Scheduling Algorithm</p>
+        <p>This is a computer-generated timetable. For any modifications, contact the Time Table Committee.</p>
+    </div>
+</body>
+</html>
