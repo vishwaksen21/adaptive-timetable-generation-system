@@ -1,79 +1,89 @@
 """
-VTU Semester-wise Subject Configuration
-Based on VTU 5th Semester AI&DS/CSDS Curriculum
+CMRIT Semester-wise Subject Configuration
+Based on VTU 2022 Scheme - 5th Semester CSE/CSDS/AI&DS Curriculum
 """
 
 from config.vtu_config import Subject
 
-# 5th Semester Subjects (AI&DS / CSDS)
+# ============================================================
+# 5th Semester Subjects (VTU 2022 Scheme - BCS Codes)
+# ============================================================
 SEMESTER_5_SUBJECTS = {
-    # Theory Subjects
-    "21CS51": Subject(
-        code="21CS51",
-        name="Computer Networks",
-        short_name="CN",
-        subject_type="theory",
-        hours_per_week=4,
-        credits=4,
-        semester=5,
-        priority=1
-    ),
-    "21CS52": Subject(
-        code="21CS52",
-        name="Theory of Computation",
-        short_name="TOC",
-        subject_type="theory",
-        hours_per_week=4,
-        credits=4,
-        semester=5,
-        priority=1
-    ),
-    "21CS53": Subject(
-        code="21CS53",
+
+    # ---------------- THEORY CORE ----------------
+    "BCS501": Subject(
+        code="BCS501",
         name="Software Engineering & Project Management",
         short_name="SEPM",
         subject_type="theory",
-        hours_per_week=3,
-        credits=3,
+        hours_per_week=4,   # 4 credits ⇒ 4 classes
+        credits=4,
         semester=5,
         priority=1
     ),
-    "21CS54": Subject(
-        code="21CS54",
-        name="Full Stack Development",
-        short_name="FSD",
+
+    "BCS502": Subject(
+        code="BCS502",
+        name="Computer Networks",
+        short_name="CN",
         subject_type="theory",
-        hours_per_week=3,
-        credits=3,
+        hours_per_week=4,   # 4 credits ⇒ 4 classes
+        credits=4,
         semester=5,
         priority=1
     ),
-    "21RMI56": Subject(
-        code="21RMI56",
+
+    "BCS503": Subject(
+        code="BCS503",
+        name="Theory of Computation",
+        short_name="TOC",
+        subject_type="theory",
+        hours_per_week=4,   # 4 credits ⇒ 4 classes
+        credits=4,
+        semester=5,
+        priority=1
+    ),
+
+    # ---------------- CORE / OTHER THEORY ----------------
+    "BRMK557": Subject(
+        code="BRMK557",
         name="Research Methodology & IPR",
         short_name="RM",
         subject_type="theory",
-        hours_per_week=2,
-        credits=2,
+        hours_per_week=3,   # 3 credits ⇒ 3 classes
+        credits=3,
         semester=5,
         priority=2
     ),
-    "21CIP57": Subject(
-        code="21CIP57",
-        name="Environmental Studies",
+
+    "BCS508": Subject(
+        code="BCS508",
+        name="Environmental Studies and E-Waste Management",
         short_name="ES",
         subject_type="audit",
-        hours_per_week=1,
+        hours_per_week=1,   # 1 hour (non-credit)
         credits=0,
         semester=5,
         priority=3
     ),
-    
-    # Professional Electives
-    "21CS551": Subject(
-        code="21CS551",
-        name="Data Visualization",
-        short_name="DV",
+
+    # ---------------- PROFESSIONAL ELECTIVES (Choose ONE) ----------------
+    # VTU Rule: Only ONE elective is scheduled per section
+    "BCS505A": Subject(
+        code="BCS505A",
+        name="Computer Vision",
+        short_name="CV",
+        subject_type="theory",
+        hours_per_week=3,   # 3 credits ⇒ 3 classes
+        credits=3,
+        semester=5,
+        is_elective=True,
+        priority=2
+    ),
+    "BCS505B": Subject(
+        code="BCS505B",
+        name="Big Data Analytics",
+        short_name="BDA",
         subject_type="theory",
         hours_per_week=3,
         credits=3,
@@ -81,8 +91,8 @@ SEMESTER_5_SUBJECTS = {
         is_elective=True,
         priority=2
     ),
-    "21CS552": Subject(
-        code="21CS552",
+    "BCS505C": Subject(
+        code="BCS505C",
         name="Cloud Computing",
         short_name="CC",
         subject_type="theory",
@@ -92,38 +102,28 @@ SEMESTER_5_SUBJECTS = {
         is_elective=True,
         priority=2
     ),
-    "21CS553": Subject(
-        code="21CS553",
-        name="Artificial Intelligence",
-        short_name="AI",
-        subject_type="theory",
-        hours_per_week=3,
-        credits=3,
-        semester=5,
-        is_elective=True,
-        priority=2
-    ),
-    
-    # Laboratory Subjects
-    "21CSL55": Subject(
-        code="21CSL55",
+
+    # ---------------- LABS (Continuous 2-hour blocks) ----------------
+    "BCSL506": Subject(
+        code="BCSL506",
         name="Computer Networks Laboratory",
         short_name="CNL",
         subject_type="lab",
-        hours_per_week=3,
+        hours_per_week=2,   # 2 hours total
         credits=1,
         semester=5,
-        lab_duration=3,
+        lab_duration=2,     # Continuous 2-hour slot
         requires_room_type="computer_lab",
         batches_required=True,
         priority=1
     ),
-    "21CSL581": Subject(
-        code="21CSL581",
-        name="Data Visualization Laboratory",
-        short_name="DVL",
+
+    "BCSL507": Subject(
+        code="BCSL507",
+        name="Software Engineering Lab / Web Technology Lab",
+        short_name="SEPL",
         subject_type="lab",
-        hours_per_week=2,
+        hours_per_week=2,   # 2 hours total
         credits=1,
         semester=5,
         lab_duration=2,
@@ -131,23 +131,10 @@ SEMESTER_5_SUBJECTS = {
         batches_required=True,
         priority=2
     ),
-    "21CSL582": Subject(
-        code="21CSL582",
-        name="Full Stack Development Laboratory",
-        short_name="FSDL",
-        subject_type="lab",
-        hours_per_week=2,
-        credits=1,
-        semester=5,
-        lab_duration=2,
-        requires_room_type="computer_lab",
-        batches_required=True,
-        priority=2
-    ),
-    
-    # Mini Project
-    "21CMP58": Subject(
-        code="21CMP58",
+
+    # ---------------- MINI PROJECT ----------------
+    "BCMP508": Subject(
+        code="BCMP508",
         name="Mini Project",
         short_name="MP",
         subject_type="mini_project",
@@ -158,10 +145,10 @@ SEMESTER_5_SUBJECTS = {
         requires_room_type="computer_lab",
         priority=2
     ),
-    
-    # Special Activities
-    "TYL": Subject(
-        code="TYL",
+
+    # ---------------- SPECIAL ACTIVITIES ----------------
+    "TYL5": Subject(
+        code="TYL5",
         name="Technical/Aptitude/Logical/Soft Skills",
         short_name="TYL",
         subject_type="tyl",
@@ -170,9 +157,10 @@ SEMESTER_5_SUBJECTS = {
         semester=5,
         priority=3
     ),
-    "9LPA": Subject(
-        code="9LPA",
-        name="Placement Training (9 LPA)",
+
+    "9LPA5": Subject(
+        code="9LPA5",
+        name="Placement Training (9-LPA)",
         short_name="9LPA",
         subject_type="9lpa",
         hours_per_week=2,
@@ -180,8 +168,9 @@ SEMESTER_5_SUBJECTS = {
         semester=5,
         priority=3
     ),
-    "YOGA": Subject(
-        code="YOGA",
+
+    "YOGA5": Subject(
+        code="YOGA5",
         name="Yoga",
         short_name="YOGA",
         subject_type="yoga",
@@ -190,8 +179,9 @@ SEMESTER_5_SUBJECTS = {
         semester=5,
         priority=4
     ),
-    "CLUB": Subject(
-        code="CLUB",
+
+    "CLUB5": Subject(
+        code="CLUB5",
         name="Club Activity",
         short_name="CLUB",
         subject_type="club",
@@ -202,7 +192,9 @@ SEMESTER_5_SUBJECTS = {
     ),
 }
 
+# ============================================================
 # 6th Semester Subjects (AI&DS / CSDS)
+# ============================================================
 SEMESTER_6_SUBJECTS = {
     "21CS61": Subject(
         code="21CS61",
@@ -630,8 +622,49 @@ ALL_SEMESTER_SUBJECTS = {
     6: SEMESTER_6_SUBJECTS,
 }
 
-def get_subjects_for_semester(semester: int) -> dict:
-    """Get all subjects for a given semester"""
+# Default elective selection per semester
+# Only ONE elective should be scheduled per section (VTU rule)
+DEFAULT_ELECTIVE = {
+    5: "BCS505A",  # Computer Vision (can change to BCS505B or BCS505C)
+    6: "21CS651",  # Big Data Analytics
+}
+
+def get_subjects_for_semester(semester: int, selected_elective: str = None) -> dict:
+    """
+    Get all subjects for a given semester.
+    
+    VTU Rule: Only ONE professional elective is scheduled per section.
+    By default, uses the configured elective. Can be overridden.
+    
+    Args:
+        semester: Semester number (3, 4, 5, 6)
+        selected_elective: Optional specific elective code to include
+        
+    Returns:
+        Dictionary of subject_code -> Subject
+    """
+    all_subjects = ALL_SEMESTER_SUBJECTS.get(semester, {})
+    
+    # Filter: include only the selected elective, exclude other electives
+    result = {}
+    elective_code = selected_elective or DEFAULT_ELECTIVE.get(semester)
+    
+    for code, subject in all_subjects.items():
+        if hasattr(subject, 'is_elective') and subject.is_elective:
+            # Only include the selected elective
+            if code == elective_code:
+                result[code] = subject
+        else:
+            result[code] = subject
+    
+    # VTU 2022: Verify only ONE elective is included
+    electives = [s for s in result.values() if getattr(s, 'is_elective', False)]
+    assert len(electives) <= 1, f"VTU rule violated: {len(electives)} electives found (max 1 allowed)"
+    
+    return result
+
+def get_all_subjects_for_semester(semester: int) -> dict:
+    """Get ALL subjects including all electives (for display purposes)"""
     return ALL_SEMESTER_SUBJECTS.get(semester, {})
 
 def get_lab_subjects(semester: int) -> list:
@@ -649,3 +682,9 @@ def get_special_activities(semester: int) -> list:
     subjects = get_subjects_for_semester(semester)
     special_types = ["tyl", "9lpa", "yoga", "club", "mini_project"]
     return [s for s in subjects.values() if s.subject_type in special_types]
+
+def get_available_electives(semester: int) -> list:
+    """Get list of available elective subjects for a semester"""
+    all_subjects = ALL_SEMESTER_SUBJECTS.get(semester, {})
+    return [s for s in all_subjects.values() 
+            if hasattr(s, 'is_elective') and s.is_elective]

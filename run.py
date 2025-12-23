@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-VTU Timetable Generation System - Main Entry Point
+CMRIT Timetable Generation System - Main Entry Point
 DSA-Based Adaptive Scheduling Algorithm
 
 Usage:
@@ -30,6 +30,44 @@ from algorithms.dsa_scheduler import (
 from algorithms.constraint_validator import ConstraintValidator
 
 
+# ============================================================
+# VTU-STYLE TIMETABLE FORMATTING (College/Notice Board Format)
+# ============================================================
+
+# Time slots including breaks (for VTU-style table)
+VTU_TIME_SLOTS = [
+    "08:00-09:00",
+    "09:00-10:00",
+    "10:00-10:20",  # SHORT BREAK
+    "10:20-11:20",
+    "11:20-12:20",
+    "12:20-13:00",  # LUNCH BREAK
+    "13:00-14:00",
+    "14:00-15:00",
+    "15:00-16:00"
+]
+
+# Map periods to table columns (0-indexed)
+PERIOD_TO_COLUMN = {
+    1: 0,   # 08:00-09:00
+    2: 1,   # 09:00-10:00
+    # 2 = SHORT BREAK
+    3: 3,   # 10:20-11:20
+    4: 4,   # 11:20-12:20
+    # 5 = LUNCH BREAK
+    5: 6,   # 13:00-14:00
+    6: 7,   # 14:00-15:00
+    7: 8    # 15:00-16:00
+}
+
+# Subject groups for merged display (like college timetables)
+SUBJECT_GROUPS = {
+    "CC/CV/NOSQL": ["CC", "CV", "NOSQL"],
+    "TYL": ["TYL-L", "TYL-T", "TYL-A", "TYL"],
+    "9LPA": ["9LPA"],
+}
+
+
 def get_time_display(period: int) -> str:
     """Get display time for a period"""
     time_map = {
@@ -42,6 +80,268 @@ def get_time_display(period: int) -> str:
         7: "15:00-16:00"
     }
     return time_map.get(period, "")
+
+
+def display_subject(entries) -> str:
+    """Format subject display with grouping for similar subjects"""
+    if not entries:
+        return ""
+    
+    codes = sorted(set(e.subject_short for e in entries))
+    
+    # Check if entries match a subject group
+    for group_name, members in SUBJECT_GROUPS.items():
+        if all(m in codes for m in members):
+            return group_name
+    
+    # For labs, show with batches
+    if any(e.subject_type == "lab" for e in entries):
+        return display_lab(entries)
+    
+    # Single subject
+    if len(codes) == 1:
+        entry = entries[0]
+        return f"{entry.subject_short}\n{entry.faculty_name}"
+    
+    # Multiple subjects in same slot (parallel)
+    return " / ".join(codes)
+
+
+def display_lab(entries) -> str:
+    """Format lab display with batch information"""
+    if not entries:
+        return ""
+    
+    subject = entries[0].subject_short
+    faculty = entries[0].faculty_name
+    batches = sorted(set(e.batch for e in entries if e.batch))
+    
+    if batches:
+        return f"{subject}\n{' / '.join(batches)}\n{faculty}"
+    return f"{subject}\n{faculty}"
+
+
+def convert_to_vtu_table(timetable: dict, section: str, days: list) -> dict:
+    """
+    Convert internal timetable to VTU-style table matrix (Day × Time)
+    Returns: {day: [col0, col1, ..., col8]} with breaks included
+    """
+    table = {day: [""] * 9 for day in days}
+    
+    if section not in timetable:
+        return table
+    
+    # Track merged cells for labs (spanning multiple periods)
+    merged_cells = {}  # (day, start_col): span_count
+    
+    for (day, period), entries in timetable[section].items():
+        col = PERIOD_TO_COLUMN.get(period)
+        if col is None:
+            continue
+        
+        # Skip if this is a continuation (already merged)
+        if any(e.is_lab_continuation for e in entries):
+            continue
+        
+        # Format cell content
+        text = display_subject(entries)
+        table[day][col] = text
+        
+        # Check for lab spanning multiple periods
+        entry = entries[0] if entries else None
+        if entry and entry.subject_type == "lab":
+            # Look for continuation in next period
+            next_period = period + 1
+            if (day, next_period) in timetable[section]:
+                next_entries = timetable[section][(day, next_period)]
+                if any(e.is_lab_continuation for e in next_entries):
+                    merged_cells[(day, col)] = 2
+    
+    # Insert breaks
+    for day in table:
+        table[day][2] = "SHORT\nBREAK"
+        table[day][5] = "LUNCH\nBREAK"
+    
+    return table, merged_cells
+
+
+def timetable_to_html(table: dict, section: str, merged_cells: dict = None) -> str:
+    """
+    Generate VTU-style HTML table (suitable for PDF/printing)
+    """
+    if merged_cells is None:
+        merged_cells = {}
+    
+    html = """<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Timetable - {section}</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; margin: 20px; }}
+        h1 {{ text-align: center; color: #333; }}
+        h2 {{ text-align: center; color: #666; margin-bottom: 20px; }}
+        table {{ border-collapse: collapse; width: 100%; margin: 20px auto; }}
+        th, td {{ 
+            border: 2px solid #333; 
+            padding: 8px 4px; 
+            text-align: center; 
+            vertical-align: middle;
+            font-size: 11px;
+            min-width: 80px;
+        }}
+        th {{ 
+            background-color: #4472C4; 
+            color: white; 
+            font-weight: bold;
+        }}
+        .day-header {{ 
+            background-color: #5B9BD5; 
+            color: white;
+            font-weight: bold;
+            width: 80px;
+        }}
+        .break {{ 
+            background-color: #FFC000; 
+            color: #333;
+            font-weight: bold;
+        }}
+        .lunch {{ 
+            background-color: #92D050; 
+            color: #333;
+            font-weight: bold;
+        }}
+        .lab {{ 
+            background-color: #E2EFDA; 
+        }}
+        .theory {{ 
+            background-color: #DEEBF7; 
+        }}
+        .empty {{ 
+            background-color: #F2F2F2; 
+        }}
+        .subject-name {{ font-weight: bold; }}
+        .faculty-name {{ font-size: 10px; color: #666; }}
+        .batch-info {{ font-size: 9px; color: #888; }}
+        @media print {{
+            body {{ margin: 0; }}
+            table {{ page-break-inside: avoid; }}
+        }}
+    </style>
+</head>
+<body>
+    <h1>CLASS TIMETABLE</h1>
+    <h2>Section: {section}</h2>
+    <table>
+        <tr>
+            <th>Day / Time</th>
+""".format(section=section)
+    
+    # Header row with time slots
+    for i, time_slot in enumerate(VTU_TIME_SLOTS):
+        css_class = ""
+        if i == 2:
+            css_class = " class='break'"
+        elif i == 5:
+            css_class = " class='lunch'"
+        html += f"            <th{css_class}>{time_slot}</th>\n"
+    html += "        </tr>\n"
+    
+    # Data rows
+    for day, slots in table.items():
+        html += f"        <tr>\n"
+        html += f"            <th class='day-header'>{day}</th>\n"
+        
+        skip_cols = set()
+        for i, cell in enumerate(slots):
+            if i in skip_cols:
+                continue
+            
+            # Determine cell class
+            css_class = ""
+            colspan = ""
+            
+            if i == 2:
+                css_class = "break"
+            elif i == 5:
+                css_class = "lunch"
+            elif not cell:
+                css_class = "empty"
+            elif "LAB" in cell.upper() or (day, i) in merged_cells:
+                css_class = "lab"
+                # Handle merged cells for labs
+                if (day, i) in merged_cells:
+                    span = merged_cells[(day, i)]
+                    colspan = f" colspan='{span}'"
+                    for j in range(1, span):
+                        skip_cols.add(i + j)
+            else:
+                css_class = "theory"
+            
+            # Format cell content with line breaks as HTML
+            cell_html = cell.replace('\n', '<br>') if cell else '-'
+            
+            html += f"            <td class='{css_class}'{colspan}>{cell_html}</td>\n"
+        
+        html += "        </tr>\n"
+    
+    html += """    </table>
+    <p style="text-align: center; font-size: 10px; color: #666;">
+        Generated by CMRIT Timetable Generation System | DSA-Based Adaptive Scheduling
+    </p>
+</body>
+</html>"""
+    
+    return html
+
+
+def print_vtu_timetable(timetable: dict, section: str, days: list):
+    """Print timetable in VTU-style tabular format (console)"""
+    table, _ = convert_to_vtu_table(timetable, section, days)
+    
+    print(f"\n{'='*120}")
+    print(f"CMRIT TIMETABLE - {section}")
+    print(f"{'='*120}")
+    
+    # Header
+    header = f"{'Day':<10}"
+    for time_slot in VTU_TIME_SLOTS:
+        header += f"| {time_slot:^12}"
+    print(header)
+    print("-" * 120)
+    
+    # Rows
+    for day, slots in table.items():
+        # First line of row
+        row1 = f"{day:<10}"
+        for cell in slots:
+            lines = cell.split('\n') if cell else ['-']
+            row1 += f"| {lines[0]:^12}"
+        print(row1)
+        
+        # Second line if exists (faculty/batch info)
+        has_second_line = any('\n' in cell for cell in slots if cell)
+        if has_second_line:
+            row2 = f"{'':<10}"
+            for cell in slots:
+                lines = cell.split('\n') if cell else ['']
+                row2 += f"| {lines[1] if len(lines) > 1 else '':^12}"
+            print(row2)
+        
+        print("-" * 120)
+    
+    print("=" * 120)
+
+
+def save_vtu_html_timetable(timetable: dict, section: str, days: list, output_path: str):
+    """Save timetable as VTU-style HTML file"""
+    table, merged_cells = convert_to_vtu_table(timetable, section, days)
+    html = timetable_to_html(table, section, merged_cells)
+    
+    with open(output_path, 'w') as f:
+        f.write(html)
+    
+    return output_path
 
 
 def print_timetable_text(timetable: dict, section: str):
@@ -86,7 +386,7 @@ def generate_timetable_cli(semester: int, branch: str, sections: list,
                           debug_mode: bool = False):
     """Generate timetable from command line"""
     print(f"\n{'='*60}")
-    print("VTU TIMETABLE GENERATION SYSTEM")
+    print("CMRIT TIMETABLE GENERATION SYSTEM")
     print("DSA-Based Adaptive Scheduling Algorithm")
     print(f"{'='*60}")
     print(f"Semester: {semester}")
@@ -172,15 +472,32 @@ def generate_timetable_cli(semester: int, branch: str, sections: list,
         for v in validation.hard_violations[:5]:
             print(f"  - {v['type']}: {v['description']}")
     
-    # Print timetables
+    # Print timetables (both formats)
     for section in sections:
         print_timetable_text(timetable, section)
+        print_vtu_timetable(timetable, section, DAYS)
     
     # Save to file
     output_dir = 'data/generated_timetables'
     os.makedirs(output_dir, exist_ok=True)
     
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    
+    # Save VTU-style HTML timetables for each section
+    html_dir = f"{output_dir}/html"
+    os.makedirs(html_dir, exist_ok=True)
+    
+    print(f"\n{'='*60}")
+    print("SAVING CMRIT-STYLE HTML TIMETABLES")
+    print(f"{'='*60}")
+    
+    for section in sections:
+        html_path = f"{html_dir}/{section}_timetable_{timestamp}.html"
+        save_vtu_html_timetable(timetable, section, DAYS, html_path)
+        print(f"  ✓ {section}: {html_path}")
+    
+    print(f"\nOpen HTML files in browser → Print → Save as PDF for college format")
+    
     filename = f"{output_dir}/timetable_sem{semester}_{branch}_{timestamp}.json"
     
     # Convert to JSON-serializable format
@@ -245,7 +562,7 @@ def generate_timetable_cli(semester: int, branch: str, sections: list,
 def run_web_server():
     """Run the Flask web server"""
     print("\n" + "="*60)
-    print("VTU TIMETABLE GENERATION SYSTEM - WEB SERVER")
+    print("CMRIT TIMETABLE GENERATION SYSTEM - WEB SERVER")
     print("="*60)
     print("\nStarting web server...")
     print("Open http://localhost:5000 in your browser")
@@ -258,7 +575,7 @@ def run_web_server():
 def run_tests():
     """Run system tests"""
     print("\n" + "="*60)
-    print("VTU TIMETABLE GENERATION SYSTEM - TESTS")
+    print("CMRIT TIMETABLE GENERATION SYSTEM - TESTS")
     print("="*60 + "\n")
     
     # Test 1: Configuration Loading
@@ -339,7 +656,7 @@ def run_tests():
 
 def main():
     parser = argparse.ArgumentParser(
-        description='VTU Timetable Generation System - DSA-Based Scheduling'
+        description='CMRIT Timetable Generation System - DSA-Based Scheduling'
     )
     parser.add_argument('--cli', action='store_true', 
                         help='Run in CLI mode')

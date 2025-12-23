@@ -1,4 +1,4 @@
-# Algorithms package for VTU Timetable System
+# Algorithms package for CMRIT Timetable System
 from algorithms.dsa_scheduler import (
     TimetableScheduler,
     ConstraintSatisfactionScheduler,

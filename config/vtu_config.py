@@ -1,6 +1,6 @@
 """
-VTU Engineering College Timetable Configuration
-Based on Indian Standard Time (IST) and VTU academic structure
+CMRIT Engineering College Timetable Configuration
+Based on Indian Standard Time (IST) and CMRIT academic structure
 """
 
 from dataclasses import dataclass, field

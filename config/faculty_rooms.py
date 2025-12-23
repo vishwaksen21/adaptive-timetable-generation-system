@@ -1,17 +1,17 @@
 """
-Faculty and Room Configuration for VTU Timetable System
+Faculty and Room Configuration for CMRIT Timetable System
 """
 
 from config.vtu_config import Faculty, Room
 
-# Faculty Configuration for AI&DS / CSDS
+# Faculty Configuration for AI&DS / CSDS (VTU 2022 Scheme - BCS Codes)
 FACULTY_LIST = {
-    # Computer Science Faculty
+    # Computer Science Faculty - Semester 5
     "F001": Faculty(
         id="F001",
         name="Dr. Ramesh Kumar",
         short_name="RK",
-        subjects=["21CS51", "21CS52", "21CSL55"],
+        subjects=["BCS501", "BCS502", "BCSL506"],
         max_hours_per_day=6,
         max_hours_per_week=24
     ),
@@ -19,7 +19,7 @@ FACULTY_LIST = {
         id="F002",
         name="Prof. Suresh Babu",
         short_name="SB",
-        subjects=["21CS53", "21CS54", "21CSL582"],
+        subjects=["BCS502", "BCS503", "BCSL507"],
         max_hours_per_day=6,
         max_hours_per_week=24
     ),
@@ -27,7 +27,7 @@ FACULTY_LIST = {
         id="F003",
         name="Dr. Mahesh Reddy",
         short_name="MR",
-        subjects=["21CS51", "21CS551", "21CSL55", "21CSL581"],
+        subjects=["BCS501", "BCS505A", "BCSL506"],
         max_hours_per_day=6,
         max_hours_per_week=24
     ),
@@ -35,7 +35,7 @@ FACULTY_LIST = {
         id="F004",
         name="Prof. Rajesh Gowda",
         short_name="RG",
-        subjects=["21CS52", "21CS553", "21RMI56"],
+        subjects=["BCS503", "BRMK557", "BCS505B"],
         max_hours_per_day=6,
         max_hours_per_week=24
     ),
@@ -43,7 +43,7 @@ FACULTY_LIST = {
         id="F005",
         name="Dr. Dinesh Rao",
         short_name="DR",
-        subjects=["21CS54", "21CSL582", "21CMP58"],
+        subjects=["BCS505C", "BCSL507", "BCMP508"],
         max_hours_per_day=6,
         max_hours_per_week=24
     ),
@@ -51,7 +51,7 @@ FACULTY_LIST = {
         id="F006",
         name="Prof. Lakshmi Devi",
         short_name="LD",
-        subjects=["21CS551", "21CSL581", "21CS552"],
+        subjects=["BCS505A", "BCS505B", "BCSL506"],
         max_hours_per_day=6,
         max_hours_per_week=24
     ),
@@ -59,7 +59,7 @@ FACULTY_LIST = {
         id="F007",
         name="Dr. Priya Sharma",
         short_name="PS",
-        subjects=["21CS53", "21RMI56", "21CIP57"],
+        subjects=["BRMK557", "BCS508", "BCS501"],
         max_hours_per_day=6,
         max_hours_per_week=24
     ),
@@ -140,12 +140,12 @@ FACULTY_LIST = {
         max_hours_per_week=24
     ),
     
-    # Special Activity Coordinators
+    # Special Activity Coordinators (updated for VTU 2022 codes)
     "F017": Faculty(
         id="F017",
         name="TYL Coordinator",
         short_name="TYL-C",
-        subjects=["TYL", "TYL3", "TYL4", "TYL6"],
+        subjects=["TYL5", "TYL3", "TYL4", "TYL6"],
         max_hours_per_day=8,
         max_hours_per_week=30
     ),
@@ -153,7 +153,7 @@ FACULTY_LIST = {
         id="F018",
         name="9LPA Training Coordinator",
         short_name="9LPA-C",
-        subjects=["9LPA", "9LPA6"],
+        subjects=["9LPA5", "9LPA6"],
         max_hours_per_day=8,
         max_hours_per_week=30
     ),
@@ -161,7 +161,7 @@ FACULTY_LIST = {
         id="F019",
         name="Yoga Instructor",
         short_name="YOGA-I",
-        subjects=["YOGA", "YOGA3", "YOGA4", "YOGA6"],
+        subjects=["YOGA5", "YOGA3", "YOGA4", "YOGA6"],
         max_hours_per_day=6,
         max_hours_per_week=20
     ),
@@ -169,7 +169,7 @@ FACULTY_LIST = {
         id="F020",
         name="Club Activity Coordinator",
         short_name="CLUB-C",
-        subjects=["CLUB", "CLUB3", "CLUB4", "CLUB6"],
+        subjects=["CLUB5", "CLUB3", "CLUB4", "CLUB6"],
         max_hours_per_day=6,
         max_hours_per_week=20
     ),

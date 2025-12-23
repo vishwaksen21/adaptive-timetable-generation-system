@@ -2,7 +2,7 @@
 set -e
 
 echo "=========================================="
-echo "VTU Timetable Generation System Setup"
+echo "CMRIT Timetable Generation System Setup"
 echo "DSA-Based Adaptive Scheduling"
 echo "=========================================="
 echo ""

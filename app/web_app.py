@@ -1,5 +1,5 @@
 """
-VTU Timetable Generation System - Flask Web Application
+CMRIT Timetable Generation System - Flask Web Application
 """
 
 import os
@@ -7,6 +7,7 @@ import json
 import time
 import logging
 from datetime import datetime
+from collections import deque
 from flask import Flask, render_template, request, jsonify, send_file, Response
 from flask_cors import CORS
 import csv
@@ -44,6 +45,17 @@ CORS(app)
 # Store generated timetables in memory (in production, use database)
 generated_timetables = {}
 
+# ============================================================
+# SUBJECT GROUPING FOR VTU-STYLE DISPLAY
+# ============================================================
+# Groups subjects that should appear together in one cell
+SUBJECT_GROUPS = {
+    "CC / CV / NoSQL": {"CC", "CV", "NOSQL"},
+    "TYL": {"TYL", "TYL-L", "TYL-T", "TYL-A"},
+    "9LPA": {"9LPA"},
+}
+
+
 def get_time_display(period: int) -> str:
     """Get display time for a period"""
     time_map = {
@@ -56,6 +68,71 @@ def get_time_display(period: int) -> str:
         7: "15:00-16:00"
     }
     return time_map.get(period, "")
+
+
+def rotated_periods_for_day(day: str) -> list:
+    """
+    Get rotated period order for a specific day.
+    This ensures different subjects appear in first period on different days,
+    preventing visual bias (e.g., CN always appearing first).
+    
+    NOTE: This only affects DISPLAY order, not actual scheduling.
+    """
+    base = deque(range(1, PERIODS_PER_DAY + 1))
+    shift = DAYS.index(day) % PERIODS_PER_DAY
+    base.rotate(-shift)
+    return list(base)
+
+
+def group_entries(entries: list) -> list:
+    """
+    Group multiple entries into display-friendly format.
+    
+    - Merges CC/CV/NoSQL into single cell
+    - Merges lab batches (C1/C2/C3) into single cell
+    - Returns formatted entry list for template
+    """
+    if not entries:
+        return []
+    
+    subjects = {e.subject_short.upper() for e in entries}
+    
+    # Check if this is a lab with multiple batches
+    if any(e.subject_type == "lab" for e in entries):
+        batches = sorted({e.batch for e in entries if e.batch})
+        faculties = sorted({e.faculty_name for e in entries})
+        rooms = sorted({e.room_number for e in entries})
+        
+        return [{
+            'subject': entries[0].subject_short,
+            'faculty': ' / '.join(faculties) if len(faculties) <= 2 else faculties[0] + ' +',
+            'room': ' / '.join(rooms) if len(rooms) <= 2 else rooms[0] + ' +',
+            'batch': ' / '.join(batches) if batches else None,
+            'type': 'lab'
+        }]
+    
+    # Check if entries match a subject group (CC/CV/NoSQL etc.)
+    for label, members in SUBJECT_GROUPS.items():
+        if subjects.issubset(members) or subjects == members:
+            faculties = sorted({e.faculty_name for e in entries})
+            rooms = sorted({e.room_number for e in entries})
+            return [{
+                'subject': label,
+                'faculty': ', '.join(faculties),
+                'room': ', '.join(rooms),
+                'batch': None,
+                'type': entries[0].subject_type
+            }]
+    
+    # Default: return individual entries
+    return [{
+        'subject': e.subject_short,
+        'faculty': e.faculty_name,
+        'room': e.room_number,
+        'batch': e.batch,
+        'type': e.subject_type
+    } for e in entries]
+
 
 def convert_timetable_to_matrix(timetable: dict, section: str) -> list:
     """Convert timetable dictionary to matrix format for display"""
@@ -70,25 +147,8 @@ def convert_timetable_to_matrix(timetable: dict, section: str) -> list:
             if section in timetable and slot_key in timetable[section]:
                 entries = timetable[section][slot_key]
                 
-                # Format cell content
-                cell_content = []
-                for entry in entries:
-                    if entry.batch:
-                        cell_content.append({
-                            'subject': entry.subject_short,
-                            'faculty': entry.faculty_name,
-                            'room': entry.room_number,
-                            'batch': entry.batch,
-                            'type': entry.subject_type
-                        })
-                    else:
-                        cell_content.append({
-                            'subject': entry.subject_short,
-                            'faculty': entry.faculty_name,
-                            'room': entry.room_number,
-                            'batch': None,
-                            'type': entry.subject_type
-                        })
+                # Use grouped entries for VTU-style display
+                cell_content = group_entries(entries)
                 
                 row['periods'].append({
                     'period': period,
@@ -137,17 +197,20 @@ def convert_timetable_to_json(timetable: dict, section: str) -> dict:
             }
             
             if section in timetable and slot_key in timetable[section]:
-                for entry in timetable[section][slot_key]:
+                entries = timetable[section][slot_key]
+                # Use grouped display for VTU-style format
+                grouped = group_entries(entries)
+                for g in grouped:
                     slot_data['classes'].append({
-                        'subject_code': entry.subject_code,
-                        'subject_name': entry.subject_name,
-                        'subject_short': entry.subject_short,
-                        'subject_type': entry.subject_type,
-                        'faculty_id': entry.faculty_id,
-                        'faculty_name': entry.faculty_name,
-                        'room': entry.room_number,
-                        'batch': entry.batch,
-                        'is_continuation': entry.is_lab_continuation
+                        'subject_code': entries[0].subject_code if entries else '',
+                        'subject_name': entries[0].subject_name if entries else '',
+                        'subject_short': g['subject'],
+                        'subject_type': g['type'],
+                        'faculty_id': entries[0].faculty_id if entries else '',
+                        'faculty_name': g['faculty'],
+                        'room': g['room'],
+                        'batch': g['batch'],
+                        'is_continuation': any(e.is_lab_continuation for e in entries)
                     })
             
             day_data['slots'].append(slot_data)

@@ -11,7 +11,6 @@ import logging
 from typing import Dict, List, Tuple, Optional, Set
 from dataclasses import dataclass, field
 from collections import defaultdict
-from enum import Enum
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -41,11 +40,11 @@ class ConstraintViolation:
     severity: str  # "hard" or "soft"
     affected_entries: List[TimeSlotEntry] = field(default_factory=list)
 
-class AlgorithmType(Enum):
-    CONSTRAINT_SATISFACTION = "constraint_satisfaction"
-    GENETIC_ALGORITHM = "genetic"
-    GRAPH_COLORING = "graph_coloring"
-    HYBRID = "hybrid"
+# Algorithm types (using strings for simplicity)
+ALGORITHM_CONSTRAINT_SATISFACTION = "constraint_satisfaction"
+ALGORITHM_GENETIC = "genetic"
+ALGORITHM_GRAPH_COLORING = "graph_coloring"
+ALGORITHM_HYBRID = "hybrid"
 
 
 class TimetableScheduler:
@@ -58,7 +57,7 @@ class TimetableScheduler:
         self.config = config
         self.debug_mode = config.get('debug_mode', False)
         self.timeout_seconds = config.get('timeout_seconds', 300)
-        self.algorithm_type = config.get('algorithm_type', AlgorithmType.CONSTRAINT_SATISFACTION)
+        self.algorithm_type = config.get('algorithm_type', ALGORITHM_CONSTRAINT_SATISFACTION)
         
         # Time configuration
         self.days = config.get('days', ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"])
@@ -71,11 +70,13 @@ class TimetableScheduler:
         
         # State tracking
         self.timetable: Dict[str, Dict[Tuple[str, int], List[TimeSlotEntry]]] = {}  # section -> (day, period) -> entries
-        self.teacher_schedule: Dict[str, Dict[Tuple[str, int], TimeSlotEntry]] = {}  # faculty_id -> (day, period) -> entry
-        self.room_schedule: Dict[str, Dict[Tuple[str, int], TimeSlotEntry]] = {}  # room -> (day, period) -> entry
+        # Use lists to support parallel batch labs (same teacher/room for multiple batches)
+        self.teacher_schedule: Dict[str, Dict[Tuple[str, int], List[TimeSlotEntry]]] = {}  # faculty_id -> (day, period) -> entries
+        self.room_schedule: Dict[str, Dict[Tuple[str, int], List[TimeSlotEntry]]] = {}  # room -> (day, period) -> entries
         
         # Tracking for requirements
         self.subject_hours_allocated: Dict[str, Dict[str, int]] = {}  # section -> subject_code -> hours
+        self.subjects_config: Dict[str, any] = {}  # subject_code -> Subject (for credit checking)
         
         # Statistics
         self.backtrack_count = 0
@@ -88,36 +89,59 @@ class TimetableScheduler:
         for section in sections:
             self.timetable[section] = {}
             self.subject_hours_allocated[section] = defaultdict(int)
-            
-        self.teacher_schedule = defaultdict(dict)
-        self.room_schedule = defaultdict(dict)
+        
+        # Use nested defaultdict with list to support parallel batch labs
+        self.teacher_schedule = defaultdict(lambda: defaultdict(list))
+        self.room_schedule = defaultdict(lambda: defaultdict(list))
         
     def check_hard_constraints(self, entry: TimeSlotEntry) -> Tuple[bool, List[str]]:
-        """
-        Check all hard constraints for a proposed entry
-        Returns (is_valid, list_of_violations)
-        """
         violations = []
         day = entry.day
         period = entry.period
         section = entry.section
-        
-        # 1. No section clash - section can't have two classes at same time
+
+        # 1. Section clash
         if (day, period) in self.timetable.get(section, {}):
             existing = self.timetable[section][(day, period)]
-            if existing and not any(e.batch for e in existing):
-                violations.append(f"Section {section} already has class at {day} period {period}")
-        
-        # 2. No teacher clash - teacher can't be in two places at once
-        if entry.faculty_id in self.teacher_schedule:
-            if (day, period) in self.teacher_schedule[entry.faculty_id]:
-                violations.append(f"Teacher {entry.faculty_name} already assigned at {day} period {period}")
-        
-        # 3. No room clash - room can't be double-booked
-        if entry.room_number in self.room_schedule:
-            if (day, period) in self.room_schedule[entry.room_number]:
-                violations.append(f"Room {entry.room_number} already booked at {day} period {period}")
-        
+            if existing:
+                if not any(e.batch for e in existing) and not entry.batch:
+                    violations.append(
+                        f"Section {section} already has class at {day} P{period}"
+                    )
+                elif entry.batch:
+                    if any(e.batch == entry.batch for e in existing):
+                        violations.append(
+                            f"Batch {entry.batch} already has class at {day} P{period}"
+                        )
+                elif not entry.batch and any(e.batch for e in existing):
+                    violations.append(
+                        f"Section {section} already has lab at {day} P{period}"
+                    )
+
+        # 2. SAME SUBJECT TWICE IN A DAY (VTU-friendly HARD constraint)
+        for (d, _), entries in self.timetable.get(section, {}).items():
+            if d == day:
+                if any(e.subject_code == entry.subject_code for e in entries):
+                    violations.append(
+                        f"{entry.subject_short} already scheduled on {day} for {section}"
+                    )
+                    break
+
+        # 3. Teacher clash (batch exception)
+        teacher_entries = self.teacher_schedule[entry.faculty_id][(day, period)]
+        for e in teacher_entries:
+            if not (entry.batch and e.batch and entry.section == e.section):
+                violations.append(
+                    f"Teacher {entry.faculty_name} busy at {day} P{period}"
+                )
+                break
+
+        # 4. Room clash
+        if self.room_schedule[entry.room_number][(day, period)]:
+            violations.append(
+                f"Room {entry.room_number} occupied at {day} P{period}"
+            )
+
         return len(violations) == 0, violations
     
     def check_lab_continuity(self, section: str, subject_code: str, day: str, 
@@ -190,19 +214,31 @@ class TimetableScheduler:
         day = entry.day
         period = entry.period
         
+        # VTU 2022: Hard stop when subject credits are already complete
+        # This prevents over-allocation and ensures exact credit match
+        if not entry.is_lab_continuation:
+            subject_config = self.subjects_config.get(entry.subject_code, None)
+            if subject_config:
+                current_hours = self.subject_hours_allocated[section].get(entry.subject_code, 0)
+                if current_hours >= subject_config.hours_per_week:
+                    if self.debug_mode:
+                        logger.debug(f"Entry rejected: {entry.subject_code} already has {current_hours}/{subject_config.hours_per_week} hours")
+                    return False
+        
         # Add to timetable
         if (day, period) not in self.timetable[section]:
             self.timetable[section][(day, period)] = []
         self.timetable[section][(day, period)].append(entry)
         
-        # Track teacher schedule
-        self.teacher_schedule[entry.faculty_id][(day, period)] = entry
+        # Track teacher schedule (append to list for parallel lab support)
+        self.teacher_schedule[entry.faculty_id][(day, period)].append(entry)
         
-        # Track room schedule
-        self.room_schedule[entry.room_number][(day, period)] = entry
+        # Track room schedule (append to list for parallel lab support)
+        self.room_schedule[entry.room_number][(day, period)].append(entry)
         
-        # Track subject hours
-        self.subject_hours_allocated[section][entry.subject_code] += 1
+        # Track subject hours - only count once per lab session (not continuation)
+        if not entry.is_lab_continuation:
+            self.subject_hours_allocated[section][entry.subject_code] += 1
         
         return True
     
@@ -220,18 +256,23 @@ class TimetableScheduler:
             if not self.timetable[section][(day, period)]:
                 del self.timetable[section][(day, period)]
         
-        # Remove from teacher schedule
-        if entry.faculty_id in self.teacher_schedule:
-            if (day, period) in self.teacher_schedule[entry.faculty_id]:
-                del self.teacher_schedule[entry.faculty_id][(day, period)]
+        # Remove from teacher schedule (filter from list)
+        if (day, period) in self.teacher_schedule[entry.faculty_id]:
+            self.teacher_schedule[entry.faculty_id][(day, period)] = [
+                e for e in self.teacher_schedule[entry.faculty_id][(day, period)]
+                if e != entry
+            ]
         
-        # Remove from room schedule
-        if entry.room_number in self.room_schedule:
-            if (day, period) in self.room_schedule[entry.room_number]:
-                del self.room_schedule[entry.room_number][(day, period)]
+        # Remove from room schedule (filter from list)
+        if (day, period) in self.room_schedule[entry.room_number]:
+            self.room_schedule[entry.room_number][(day, period)] = [
+                e for e in self.room_schedule[entry.room_number][(day, period)]
+                if e != entry
+            ]
         
-        # Update subject hours
-        self.subject_hours_allocated[section][entry.subject_code] -= 1
+        # Update subject hours - only decrement for non-continuation entries
+        if not entry.is_lab_continuation:
+            self.subject_hours_allocated[section][entry.subject_code] -= 1
     
     def get_available_slots(self, section: str) -> List[Tuple[str, int]]:
         """Get all available slots for a section"""
@@ -243,26 +284,49 @@ class TimetableScheduler:
         return available
     
     def get_available_faculty(self, subject_code: str, day: str, 
-                              period: int, faculty_list: List) -> List:
+                              period: int, faculty_list: List, 
+                              for_batch_lab: bool = False, section: str = None) -> List:
         """Get available faculty for a subject at a given time"""
         available = []
         for faculty in faculty_list:
             if subject_code in faculty.subjects:
                 # Check if faculty is available
-                if (day, period) not in self.teacher_schedule.get(faculty.id, {}):
+                is_available = True
+                existing_entries = self.teacher_schedule[faculty.id][(day, period)]
+                if existing_entries:
+                    # If this is for a batch lab in the same section, allow reuse
+                    if for_batch_lab and section:
+                        # Allow if all existing are also batch labs in same section
+                        for existing in existing_entries:
+                            if not (existing.batch and existing.section == section):
+                                is_available = False
+                                break
+                    else:
+                        is_available = False
+                
+                if is_available:
                     # Check unavailable slots
                     if (day, period) not in faculty.unavailable_slots:
                         available.append(faculty)
         return available
     
     def get_available_rooms(self, room_type: str, day: str, 
-                            period: int, room_list: List) -> List:
+                            period: int, room_list: List, fallback_to_any: bool = False) -> List:
         """Get available rooms of a type at a given time"""
         available = []
         for room in room_list:
             if room.room_type == room_type or room_type == "any":
-                if (day, period) not in self.room_schedule.get(room.number, {}):
+                # Check if room has no entries at this slot
+                if not self.room_schedule[room.number][(day, period)]:
                     available.append(room)
+        
+        # If no specific room type available and fallback is allowed, try classrooms
+        if not available and fallback_to_any and room_type not in ["classroom", "computer_lab", "electronics_lab"]:
+            for room in room_list:
+                if room.room_type == "classroom":
+                    if not self.room_schedule[room.number][(day, period)]:
+                        available.append(room)
+        
         return available
 
 
@@ -284,6 +348,9 @@ class ConstraintSatisfactionScheduler(TimetableScheduler):
         start_time = time.time()
         self.initialize_state(sections)
         
+        # VTU 2022: Store subjects config for credit checking in add_entry()
+        self.subjects_config = {s.code: s for s in subjects}
+        
         # Fixed slots configuration
         # Wednesday: Period 6 (14:00-15:00) = YOGA, Period 7 (15:00-16:00) = CLUB
         # Thursday: Period 6-7 (14:00-16:00) = Mini Project / Project Phase 1
@@ -295,6 +362,7 @@ class ConstraintSatisfactionScheduler(TimetableScheduler):
         }
         
         # First, schedule fixed activities for all sections
+        fixed_scheduled = 0
         for section in sections:
             for subject in subjects:
                 if subject.short_name in fixed_slot_types:
@@ -306,7 +374,7 @@ class ConstraintSatisfactionScheduler(TimetableScheduler):
                             subject.code, day, period, faculty_list
                         )
                         room_type = self._get_room_type_for_subject(subject)
-                        available_rooms = self.get_available_rooms(room_type, day, period, room_list)
+                        available_rooms = self.get_available_rooms(room_type, day, period, room_list, fallback_to_any=True)
                         
                         if available_faculty and available_rooms:
                             faculty = available_faculty[0]
@@ -326,7 +394,14 @@ class ConstraintSatisfactionScheduler(TimetableScheduler):
                                 batch=None,
                                 is_lab_continuation=(period > slots[0][1]) if len(slots) > 1 else False
                             )
-                            self.add_entry(entry)
+                            if self.add_entry(entry):
+                                fixed_scheduled += 1
+                        else:
+                            if self.debug_mode:
+                                logger.warning(f"Could not schedule fixed slot {subject.short_name} for {section} on {day} P{period}: faculty={len(available_faculty) if available_faculty else 0}, rooms={len(available_rooms) if available_rooms else 0}")
+        
+        if self.debug_mode:
+            logger.info(f"Scheduled {fixed_scheduled} fixed slot entries")
         
         # Create scheduling order - prioritize by subject priority and type
         # Exclude fixed slot subjects
@@ -338,27 +413,40 @@ class ConstraintSatisfactionScheduler(TimetableScheduler):
             logger.info(f"Greedy scheduling {len(scheduling_queue)} items (excluding fixed)")
         
         scheduled_count = 0
+        failed_items = []
         
         for item in scheduling_queue:
             section = item['section']
             subject = item['subject']
             batch = item.get('batch')
             duration = item['duration']
+            is_parallel_lab = item.get('is_parallel_lab', False)
+            batches = item.get('batches', [])
             
             # Get available slots - prefer earlier periods, avoid period 7
-            available_slots = self._get_valid_slots_for_item(section, subject, duration)
+            available_slots = self._get_valid_slots_for_item(section, subject, duration, is_parallel_lab)
             
             if not available_slots:
+                if self.debug_mode:
+                    logger.warning(f"No available slots for {subject.short_name} in {section}")
+                failed_items.append(item)
                 continue
             
-            # Sort slots to prefer:
+            # Sort slots with randomization to prevent same subject always getting first period
             # 1. Saturday: prefer periods 1-4 (end by 12:20), avoid 5-7 unless necessary
             # 2. Weekdays: avoid period 7 (15:00-16:00) unless necessary
-            # 3. Earlier periods first (morning preference)
+            # 3. Add random factor to break ties and distribute subjects
             # 4. Slots that fill gaps (no breaks between classes)
+            
+            # Shuffle slots with same priority to prevent deterministic bias
+            random.shuffle(available_slots)
+            
             def slot_priority(slot):
                 day, start_period = slot
                 day_idx = self.days.index(day) if day in self.days else 0
+                
+                # Add randomization factor for first period to prevent same subject always first
+                random_factor = random.random() * 0.5 if start_period == 1 else 0
                 end_period = start_period + duration - 1
                 
                 # Saturday penalty - prefer ending by period 4 (12:20)
@@ -381,10 +469,12 @@ class ConstraintSatisfactionScheduler(TimetableScheduler):
                     fills_gap = has_before and has_after
                 
                 # Priority tuple: lower is better
-                # (saturday_afternoon, uses_period_7, uses_period_6, NOT fills_gap, start_period, day_idx)
-                return (saturday_afternoon, uses_period_7, uses_period_6, -int(fills_gap), start_period, day_idx)
+                # (saturday_afternoon, uses_period_7, uses_period_6, NOT fills_gap, random_factor, start_period, day_idx)
+                return (saturday_afternoon, uses_period_7, uses_period_6, -int(fills_gap), random_factor, start_period, day_idx)
             
             available_slots.sort(key=slot_priority)
+            
+            item_scheduled = False
             
             for day, start_period in available_slots:
                 self.total_attempts += 1
@@ -392,62 +482,248 @@ class ConstraintSatisfactionScheduler(TimetableScheduler):
                 entries_added = []
                 success = True
                 
-                for p in range(start_period, start_period + duration):
-                    # Get available faculty
-                    available_faculty = self.get_available_faculty(
-                        subject.code, day, p, faculty_list
-                    )
+                # Handle parallel lab (all batches at same time)
+                if is_parallel_lab and batches:
+                    for p in range(start_period, start_period + duration):
+                        # Need faculty and room for EACH batch
+                        available_faculty = self.get_available_faculty(
+                            subject.code, day, p, faculty_list,
+                            for_batch_lab=True, section=section
+                        )
+                        room_type = self._get_room_type_for_subject(subject)
+                        available_rooms = self.get_available_rooms(room_type, day, p, room_list)
+                        
+                        # For batch labs: need at least 1 faculty (can supervise multiple batches)
+                        # and enough rooms for all batches
+                        if not available_faculty or len(available_rooms) < len(batches):
+                            success = False
+                            break
+                        
+                        # Assign each batch a faculty (can share) and unique room
+                        for batch_idx, batch_name in enumerate(batches):
+                            # Faculty can supervise multiple batches
+                            faculty = available_faculty[batch_idx % len(available_faculty)]
+                            # Each batch needs its own room
+                            room = available_rooms[batch_idx]
+                            
+                            entry = TimeSlotEntry(
+                                day=day,
+                                period=p,
+                                section=section,
+                                subject_code=subject.code,
+                                subject_name=subject.name,
+                                subject_short=subject.short_name,
+                                subject_type=subject.subject_type,
+                                faculty_id=faculty.id,
+                                faculty_name=faculty.short_name,
+                                room_number=room.number,
+                                batch=batch_name,
+                                is_lab_continuation=(p > start_period)
+                            )
+                            
+                            if self.add_entry(entry):
+                                entries_added.append(entry)
+                            else:
+                                success = False
+                                break
+                        
+                        if not success:
+                            break
                     
-                    if not available_faculty:
-                        success = False
-                        break
+                    expected_entries = duration * len(batches)
+                else:
+                    # Regular (non-parallel) scheduling
+                    for p in range(start_period, start_period + duration):
+                        # Get available faculty
+                        available_faculty = self.get_available_faculty(
+                            subject.code, day, p, faculty_list
+                        )
+                        
+                        if not available_faculty:
+                            success = False
+                            break
+                        
+                        # Get available rooms (with fallback for special subject types)
+                        room_type = self._get_room_type_for_subject(subject)
+                        fallback = subject.subject_type in ['tyl', '9lpa', 'yoga', 'club', 'audit']
+                        available_rooms = self.get_available_rooms(room_type, day, p, room_list, fallback_to_any=fallback)
+                        
+                        if not available_rooms:
+                            success = False
+                            break
+                        
+                        # Create entry
+                        faculty = random.choice(available_faculty)
+                        room = random.choice(available_rooms)
+                        
+                        entry = TimeSlotEntry(
+                            day=day,
+                            period=p,
+                            section=section,
+                            subject_code=subject.code,
+                            subject_name=subject.name,
+                            subject_short=subject.short_name,
+                            subject_type=subject.subject_type,
+                            faculty_id=faculty.id,
+                            faculty_name=faculty.short_name,
+                            room_number=room.number,
+                            batch=batch,
+                            is_lab_continuation=(p > start_period)
+                        )
+                        
+                        if self.add_entry(entry):
+                            entries_added.append(entry)
+                        else:
+                            success = False
+                            break
                     
-                    # Get available rooms
-                    room_type = self._get_room_type_for_subject(subject)
-                    available_rooms = self.get_available_rooms(room_type, day, p, room_list)
-                    
-                    if not available_rooms:
-                        success = False
-                        break
-                    
-                    # Create entry
-                    faculty = random.choice(available_faculty)
-                    room = random.choice(available_rooms)
-                    
-                    entry = TimeSlotEntry(
-                        day=day,
-                        period=p,
-                        section=section,
-                        subject_code=subject.code,
-                        subject_name=subject.name,
-                        subject_short=subject.short_name,
-                        subject_type=subject.subject_type,
-                        faculty_id=faculty.id,
-                        faculty_name=faculty.short_name,
-                        room_number=room.number,
-                        batch=batch,
-                        is_lab_continuation=(p > start_period)
-                    )
-                    
-                    if self.add_entry(entry):
-                        entries_added.append(entry)
-                    else:
-                        success = False
-                        break
+                    expected_entries = duration
                 
-                if success and len(entries_added) == duration:
+                if success and len(entries_added) == expected_entries:
                     scheduled_count += 1
+                    item_scheduled = True
                     break
                 else:
                     # Remove partial entries
                     for entry in entries_added:
                         self.remove_entry(entry)
+            
+            if not item_scheduled:
+                failed_items.append(item)
+        
+        # Second pass: Try to schedule failed items with relaxed constraints
+        if failed_items:
+            for item in failed_items[:]:  # Copy list since we're modifying
+                section = item['section']
+                subject = item['subject']
+                batch = item.get('batch')
+                duration = item['duration']
+                is_parallel_lab = item.get('is_parallel_lab', False)
+                batches = item.get('batches', [])
+                
+                # Get ALL slots including those that were previously considered bad
+                all_slots = []
+                for day in self.days:
+                    for period in range(1, self.periods_per_day - duration + 2):
+                        all_slots.append((day, period))
+                
+                random.shuffle(all_slots)
+                
+                for day, start_period in all_slots:
+                    # Check if slots are empty
+                    slots_empty = True
+                    for p in range(start_period, start_period + duration):
+                        if (day, p) in self.timetable.get(section, {}):
+                            existing = self.timetable[section][(day, p)]
+                            if not all(e.batch for e in existing):
+                                slots_empty = False
+                                break
+                    
+                    if not slots_empty:
+                        continue
+                    
+                    entries_added = []
+                    success = True
+                    
+                    if is_parallel_lab and batches:
+                        # Try parallel lab with relaxed faculty requirement
+                        for p in range(start_period, start_period + duration):
+                            available_faculty = self.get_available_faculty(
+                                subject.code, day, p, faculty_list,
+                                for_batch_lab=True, section=section
+                            )
+                            room_type = self._get_room_type_for_subject(subject)
+                            available_rooms = self.get_available_rooms(room_type, day, p, room_list)
+                            
+                            if not available_faculty or len(available_rooms) < len(batches):
+                                success = False
+                                break
+                            
+                            for batch_idx, batch_name in enumerate(batches):
+                                faculty = available_faculty[batch_idx % len(available_faculty)]
+                                room = available_rooms[batch_idx]
+                                
+                                entry = TimeSlotEntry(
+                                    day=day,
+                                    period=p,
+                                    section=section,
+                                    subject_code=subject.code,
+                                    subject_name=subject.name,
+                                    subject_short=subject.short_name,
+                                    subject_type=subject.subject_type,
+                                    faculty_id=faculty.id,
+                                    faculty_name=faculty.short_name,
+                                    room_number=room.number,
+                                    batch=batch_name,
+                                    is_lab_continuation=(p > start_period)
+                                )
+                                
+                                if self.add_entry(entry):
+                                    entries_added.append(entry)
+                                else:
+                                    success = False
+                                    break
+                            
+                            if not success:
+                                break
+                        
+                        expected_entries = duration * len(batches)
+                    else:
+                        for p in range(start_period, start_period + duration):
+                            available_faculty = self.get_available_faculty(
+                                subject.code, day, p, faculty_list
+                            )
+                            room_type = self._get_room_type_for_subject(subject)
+                            fallback = subject.subject_type in ['tyl', '9lpa', 'yoga', 'club', 'audit']
+                            available_rooms = self.get_available_rooms(room_type, day, p, room_list, fallback_to_any=fallback)
+                            
+                            if not available_faculty or not available_rooms:
+                                success = False
+                                break
+                            
+                            faculty = random.choice(available_faculty)
+                            room = random.choice(available_rooms)
+                            
+                            entry = TimeSlotEntry(
+                                day=day,
+                                period=p,
+                                section=section,
+                                subject_code=subject.code,
+                                subject_name=subject.name,
+                                subject_short=subject.short_name,
+                                subject_type=subject.subject_type,
+                                faculty_id=faculty.id,
+                                faculty_name=faculty.short_name,
+                                room_number=room.number,
+                                batch=batch,
+                                is_lab_continuation=(p > start_period)
+                            )
+                            
+                            if self.add_entry(entry):
+                                entries_added.append(entry)
+                            else:
+                                success = False
+                                break
+                        
+                        expected_entries = duration
+                    
+                    if success and len(entries_added) == expected_entries:
+                        scheduled_count += 1
+                        failed_items.remove(item)
+                        break
+                    else:
+                        for entry in entries_added:
+                            self.remove_entry(entry)
         
         self.generation_time = time.time() - start_time
         
         if self.debug_mode:
             logger.info(f"Greedy scheduling completed in {self.generation_time:.2f}s")
             logger.info(f"Scheduled {scheduled_count}/{len(scheduling_queue)} items")
+            if failed_items:
+                logger.warning(f"Failed to schedule {len(failed_items)} items:")
+                for item in failed_items[:10]:  # Show first 10
+                    logger.warning(f"  - {item['subject'].short_name} for {item['section']}")
         
         # Consider success if we scheduled most items
         success = scheduled_count >= len(scheduling_queue) * 0.7
@@ -458,80 +734,120 @@ class ConstraintSatisfactionScheduler(TimetableScheduler):
                                    faculty_list: List, room_list: List,
                                    section_batches: Dict[str, List[str]]) -> Tuple[bool, Dict]:
         """
-        Main scheduling method using CSP with backtracking
+        Main scheduling method - uses fast greedy approach first.
+        Backtracking is too slow for real workloads (17+ subjects × sections).
+        
+        For production: use schedule_greedy() which is much faster.
         """
-        start_time = time.time()
-        self.initialize_state(sections)
-        
-        # Create scheduling order - prioritize by subject priority and type
-        scheduling_queue = self._create_scheduling_queue(sections, subjects, section_batches)
-        
-        if self.debug_mode:
-            logger.info(f"Scheduling queue has {len(scheduling_queue)} items")
-        
-        # Try to schedule with backtracking
-        success = self._backtrack_schedule(scheduling_queue, 0, faculty_list, room_list, start_time)
-        
-        self.generation_time = time.time() - start_time
-        
-        if self.debug_mode:
-            logger.info(f"Scheduling completed in {self.generation_time:.2f}s")
-            logger.info(f"Backtrack count: {self.backtrack_count}")
-            logger.info(f"Total attempts: {self.total_attempts}")
-        
-        return success, self.timetable
+        # Use greedy scheduler (much faster for real workloads)
+        # Pure backtracking is O(n!) and too slow for 17+ subjects
+        logger.info("Using fast greedy scheduling (backtracking is too slow for this workload)")
+        return self.schedule_greedy(sections, subjects, faculty_list, room_list, section_batches)
     
     def _create_scheduling_queue(self, sections: List[str], subjects: List,
                                   section_batches: Dict[str, List[str]]) -> List[dict]:
-        """Create ordered queue of items to schedule"""
+        """
+        Create ordered queue of items to schedule using CREDIT-BASED ROUND-ROBIN.
+        
+        VTU 2022 Compliance:
+        - No priority-based ordering (causes first-period domination)
+        - Round-robin distribution ensures even spread
+        - Labs scheduled as 2-hour blocks
+        """
         queue = []
         
         for section in sections:
             batches = section_batches.get(section, [])
             
-            for subject in subjects:
-                # For labs with batches, create separate entries
-                if subject.subject_type == "lab" and subject.batches_required and batches:
-                    for batch in batches:
-                        for _ in range(subject.hours_per_week // subject.lab_duration if subject.lab_duration > 0 else 1):
-                            queue.append({
-                                'section': section,
-                                'subject': subject,
-                                'batch': batch,
-                                'duration': subject.lab_duration,
-                                'priority': subject.priority
-                            })
-                elif subject.subject_type == "lab":
+            # Separate subjects by type
+            theory_subjects = [s for s in subjects if s.subject_type in ["theory", "audit"]]
+            special_subjects = [s for s in subjects if s.subject_type in ["tyl", "9lpa", "yoga", "club"]]
+            lab_subjects = [s for s in subjects if s.subject_type == "lab"]
+            project_subjects = [s for s in subjects if s.subject_type == "mini_project"]
+            
+            # ROUND-ROBIN for theory and special activities
+            # Build credit buckets
+            credit_map = {}
+            for subject in theory_subjects + special_subjects:
+                credit_map[subject.code] = {
+                    'subject': subject,
+                    'remaining': subject.hours_per_week
+                }
+            
+            # Round-robin based on remaining credits (ensures even distribution)
+            while any(v['remaining'] > 0 for v in credit_map.values()):
+                for code, data in credit_map.items():
+                    if data['remaining'] > 0:
+                        queue.append({
+                            'section': section,
+                            'subject': data['subject'],
+                            'batch': None,
+                            'duration': 1,
+                            'is_parallel_lab': False
+                        })
+                        data['remaining'] -= 1
+            
+            # Labs separately (block scheduling, 2-hour continuous)
+            for subject in lab_subjects:
+                if subject.batches_required and batches:
+                    # Batch lab - all batches run in parallel
+                    num_sessions = subject.hours_per_week // subject.lab_duration if subject.lab_duration > 0 else 1
+                    for _ in range(num_sessions):
+                        queue.append({
+                            'section': section,
+                            'subject': subject,
+                            'batches': batches,
+                            'batch': None,
+                            'duration': subject.lab_duration,
+                            'is_parallel_lab': True
+                        })
+                else:
                     # Non-batch lab
-                    for _ in range(subject.hours_per_week // subject.lab_duration if subject.lab_duration > 0 else 1):
+                    num_sessions = subject.hours_per_week // subject.lab_duration if subject.lab_duration > 0 else 1
+                    for _ in range(num_sessions):
                         queue.append({
                             'section': section,
                             'subject': subject,
                             'batch': None,
                             'duration': subject.lab_duration,
-                            'priority': subject.priority
+                            'is_parallel_lab': False
                         })
-                else:
-                    # Theory and other subjects
-                    for _ in range(subject.hours_per_week):
-                        queue.append({
-                            'section': section,
-                            'subject': subject,
-                            'batch': None,
-                            'duration': 1,
-                            'priority': subject.priority
-                        })
+            
+            # Mini projects (block scheduling)
+            for subject in project_subjects:
+                num_sessions = subject.hours_per_week // (subject.lab_duration if subject.lab_duration > 0 else 1)
+                for _ in range(max(1, num_sessions)):
+                    queue.append({
+                        'section': section,
+                        'subject': subject,
+                        'batch': None,
+                        'duration': subject.lab_duration if subject.lab_duration > 0 else 1,
+                        'is_parallel_lab': False
+                    })
         
-        # Sort by priority (lower is higher priority)
-        # Labs first, then theory, then activities
-        queue.sort(key=lambda x: (x['priority'], -x['duration'], x['subject'].subject_type != 'lab'))
+        # Shuffle the entire queue to prevent any deterministic ordering
+        # This ensures no subject consistently gets first period
+        random.shuffle(queue)
         
-        return queue
+        # Move labs to front (they need contiguous slots, harder to place)
+        # But then shuffle everything again to remove first-period bias
+        labs = [item for item in queue if item['subject'].subject_type in ['lab', 'mini_project']]
+        non_labs = [item for item in queue if item['subject'].subject_type not in ['lab', 'mini_project']]
+        random.shuffle(labs)  # Shuffle labs too
+        
+        # Combine and shuffle again to remove lab-first bias completely
+        combined = labs + non_labs
+        random.shuffle(combined)
+        return combined
     
     def _backtrack_schedule(self, queue: List[dict], index: int,
                             faculty_list: List, room_list: List,
                             start_time: float) -> bool:
-        """Recursive backtracking scheduler"""
+        """Recursive backtracking scheduler
+        
+        NOTE: Batch labs (is_parallel_lab=True) are NOT handled by CSP backtracking.
+        They are handled only by the greedy scheduler due to their complexity.
+        """
         
         # Check timeout
         if time.time() - start_time > self.timeout_seconds:
@@ -548,12 +864,28 @@ class ConstraintSatisfactionScheduler(TimetableScheduler):
         subject = item['subject']
         batch = item.get('batch')
         duration = item['duration']
+        is_parallel_lab = item.get('is_parallel_lab', False)
+        
+        # Skip batch labs in CSP - they are handled by greedy scheduler only
+        if is_parallel_lab:
+            if self.debug_mode:
+                logger.debug(f"Skipping batch lab {subject.short_name} in CSP - use greedy scheduler")
+            return self._backtrack_schedule(queue, index + 1, faculty_list, room_list, start_time)
         
         # Get available slots
-        available_slots = self._get_valid_slots_for_item(section, subject, duration)
+        available_slots = self._get_valid_slots_for_item(section, subject, duration, is_parallel_lab)
         
-        # Shuffle for randomization
-        random.shuffle(available_slots)
+        # Sort slots by soft constraint penalty (lower penalty first)
+        def slot_penalty(slot):
+            day, period = slot
+            penalty = 0
+            # Prefer morning slots
+            penalty += period * 2
+            # Prefer earlier days
+            penalty += self.days.index(day) if day in self.days else 0
+            return penalty
+        
+        available_slots.sort(key=slot_penalty)
         
         for day, start_period in available_slots:
             self.total_attempts += 1
@@ -617,7 +949,8 @@ class ConstraintSatisfactionScheduler(TimetableScheduler):
         
         return False
     
-    def _get_valid_slots_for_item(self, section: str, subject, duration: int) -> List[Tuple[str, int]]:
+    def _get_valid_slots_for_item(self, section: str, subject, duration: int, 
+                                   is_batch_lab: bool = False) -> List[Tuple[str, int]]:
         """Get valid slots for an item considering duration"""
         valid_slots = []
         
@@ -629,8 +962,11 @@ class ConstraintSatisfactionScheduler(TimetableScheduler):
             ('Thursday', 7),   # Mini Project / PP1
         }
         
-        # Fixed slot subject types
-        fixed_subject_types = ['YOGA', 'CLUB', 'MP', 'PP1']
+        # Fixed slot subject short_names (use uppercase for consistent comparison)
+        fixed_subject_short_names = ['YOGA', 'CLUB', 'MP', 'PP1']
+        
+        # Normalize subject short_name for comparison
+        subject_short_upper = subject.short_name.upper() if subject.short_name else ''
         
         for day in self.days:
             for period in range(1, self.periods_per_day - duration + 2):
@@ -640,18 +976,38 @@ class ConstraintSatisfactionScheduler(TimetableScheduler):
                 for p in range(period, period + duration):
                     # Check if slot is already taken
                     if (day, p) in self.timetable.get(section, {}):
-                        all_available = False
-                        break
+                        existing = self.timetable[section][(day, p)]
+                        # If slot has non-batch entries, it's not available
+                        if not all(e.batch for e in existing):
+                            all_available = False
+                            break
+                        # For non-batch items, can't use slot with batch labs
+                        if not is_batch_lab:
+                            all_available = False
+                            break
                     
                     # Check if this is a reserved slot (for non-fixed subjects)
-                    if subject.short_name not in fixed_subject_types:
+                    if subject_short_upper not in fixed_subject_short_names:
                         if (day, p) in reserved_slots:
                             all_available = False
                             break
                 
-                # Check lab doesn't cross lunch (periods 4 to 5)
-                if duration > 1:
-                    if period <= 4 and period + duration > 5:
+                # VTU 2022: Labs must be continuous 2-hour blocks
+                # Cannot cross short break (period 2→3) or lunch (period 4→5)
+                if duration > 1 and subject.subject_type == "lab":
+                    # Labs can only start at periods 1, 3, 5, 6
+                    # Period 2: would cross to 3 (break between 2 and 3)
+                    # Period 4: would cross to 5 (lunch between 4 and 5)
+                    if period in [2, 4]:
+                        all_available = False
+                    # Also check general lunch crossing
+                    elif period <= 4 and period + duration > 5:
+                        all_available = False
+                
+                # Check lab continuity for lab subjects
+                if all_available and subject.subject_type == "lab" and duration > 1:
+                    ok, _ = self.check_lab_continuity(section, subject.code, day, period, duration)
+                    if not ok:
                         all_available = False
                 
                 if all_available:
@@ -668,10 +1024,14 @@ class ConstraintSatisfactionScheduler(TimetableScheduler):
                 return "electronics_lab"
             else:
                 return "computer_lab"
+        elif subject.subject_type == "mini_project":
+            return "computer_lab"
         elif subject.subject_type in ["yoga"]:
             return "activity_room"
         elif subject.subject_type in ["tyl", "9lpa"]:
             return "seminar_hall"
+        elif subject.subject_type in ["club"]:
+            return "activity_room"
         else:
             return "classroom"
 
@@ -688,6 +1048,7 @@ class GeneticAlgorithmScheduler(TimetableScheduler):
         self.mutation_rate = config.get('mutation_rate', 0.1)
         self.crossover_rate = config.get('crossover_rate', 0.8)
         self.elitism_count = config.get('elitism_count', 5)
+        self.subjects_config = {}  # Will be set during scheduling
         
     def schedule(self, sections: List[str], subjects: List,
                 faculty_list: List, room_list: List,
@@ -696,6 +1057,10 @@ class GeneticAlgorithmScheduler(TimetableScheduler):
         Main scheduling using Genetic Algorithm
         """
         start_time = time.time()
+        
+        # Store subjects config for fitness calculation
+        self.subjects_config = {s.code: s for s in subjects}
+        self.sections = sections
         
         # Generate initial population
         population = self._generate_initial_population(
@@ -710,8 +1075,8 @@ class GeneticAlgorithmScheduler(TimetableScheduler):
             if time.time() - start_time > self.timeout_seconds:
                 break
             
-            # Calculate fitness for each individual
-            fitness_scores = [self._calculate_fitness(ind) for ind in population]
+            # Calculate fitness for each individual (with subject requirements)
+            fitness_scores = [self._calculate_fitness(ind, self.subjects_config, self.sections) for ind in population]
             
             # Track best
             max_idx = fitness_scores.index(max(fitness_scores))
@@ -838,7 +1203,8 @@ class GeneticAlgorithmScheduler(TimetableScheduler):
         else:
             return "classroom"
     
-    def _calculate_fitness(self, individual: List[TimeSlotEntry]) -> float:
+    def _calculate_fitness(self, individual: List[TimeSlotEntry], 
+                           subjects_config: Dict = None, sections: List[str] = None) -> float:
         """Calculate fitness score for an individual"""
         score = 1000  # Start with base score
         
@@ -847,8 +1213,11 @@ class GeneticAlgorithmScheduler(TimetableScheduler):
         teacher_slots = defaultdict(set)
         room_slots = defaultdict(set)
         
-        # Track subject hours
+        # Track subject hours (only count non-continuation entries)
         subject_hours = defaultdict(lambda: defaultdict(int))
+        
+        # Track consecutive theory for soft constraint
+        section_day_theory = defaultdict(lambda: defaultdict(list))
         
         for entry in individual:
             key = (entry.day, entry.period)
@@ -868,11 +1237,36 @@ class GeneticAlgorithmScheduler(TimetableScheduler):
                 score -= 100
             room_slots[entry.room_number].add(key)
             
-            # Track hours
-            subject_hours[entry.section][entry.subject_code] += 1
+            # Track hours (only non-continuation for labs)
+            if not entry.is_lab_continuation:
+                subject_hours[entry.section][entry.subject_code] += 1
+            
+            # Track theory periods for soft constraint
+            if entry.subject_type == "theory":
+                section_day_theory[entry.section][entry.day].append(entry.period)
         
-        # Penalize missing hours
-        # (Would need subject requirements passed in for full implementation)
+        # VTU 2022: Penalize credit mismatch (EXACT match required)
+        if subjects_config and sections:
+            for section in sections:
+                for code, subject in subjects_config.items():
+                    required = subject.hours_per_week
+                    actual = subject_hours[section].get(code, 0)
+                    # VTU rule: credits must match EXACTLY (not just >= required)
+                    if actual != required:
+                        score -= abs(required - actual) * 100  # Heavy penalty for any mismatch
+        
+        # Soft constraint: consecutive theory periods
+        for section, days in section_day_theory.items():
+            for day, periods in days.items():
+                periods.sort()
+                consecutive = 1
+                for i in range(1, len(periods)):
+                    if periods[i] == periods[i-1] + 1:
+                        consecutive += 1
+                        if consecutive > self.max_consecutive_theory:
+                            score -= 5  # Soft penalty
+                    else:
+                        consecutive = 1
         
         return score
     
@@ -905,14 +1299,28 @@ class GeneticAlgorithmScheduler(TimetableScheduler):
         return offspring
     
     def _mutate(self, offspring, subjects, faculty_list, room_list):
-        """Mutate offspring"""
+        """Mutate offspring with constraints"""
         for individual in offspring:
             if random.random() < self.mutation_rate:
                 if individual:
                     # Random mutation - change day/period of random entry
                     idx = random.randint(0, len(individual) - 1)
+                    entry = individual[idx]
+                    
+                    # Skip lab continuation entries to preserve continuity
+                    if entry.is_lab_continuation:
+                        continue
+                    
                     individual[idx].day = random.choice(self.days)
-                    individual[idx].period = random.randint(1, self.periods_per_day)
+                    
+                    # Respect lab duration constraints
+                    # Labs need 2-3 periods, so don't place at end of day
+                    if entry.subject_type == "lab":
+                        # Leave room for lab duration (assume max 3 periods)
+                        max_period = max(1, self.periods_per_day - 2)
+                        individual[idx].period = random.randint(1, max_period)
+                    else:
+                        individual[idx].period = random.randint(1, self.periods_per_day)
         
         return offspring
     

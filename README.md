@@ -1,8 +1,8 @@
-# VTU Timetable Generation System
+# CMRIT Timetable Generation System
 
-## DSA-Based Adaptive Scheduling for VTU Engineering Colleges
+## DSA-Based Adaptive Scheduling for CMR Institute of Technology
 
-A comprehensive timetable generation system designed specifically for Visvesvaraya Technological University (VTU) engineering colleges in India, with support for AI&DS and CSDS departments.
+A comprehensive timetable generation system designed specifically for CMR Institute of Technology (CMRIT), Bangalore, with support for AI&DS and CSDS departments.
 
 ## Features
 

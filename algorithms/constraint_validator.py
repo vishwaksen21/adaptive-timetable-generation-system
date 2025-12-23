@@ -1,5 +1,5 @@
 """
-Constraint Validation System for VTU Timetable
+Constraint Validation System for CMRIT Timetable
 """
 
 from typing import Dict, List, Tuple, Set
@@ -78,16 +78,17 @@ class ConstraintValidator:
                     if not entry.is_lab_continuation:
                         subject_hours[section][entry.subject_code] += 1
         
-        # 4. Check required hours
+        # 4. Check required hours (VTU 2022: STRICT credit enforcement)
         for section in sections:
             for code, subject in subjects_config.items():
                 required = subject.hours_per_week
                 actual = subject_hours[section].get(code, 0)
                 
-                if actual < required:
+                # VTU rule: credits must match EXACTLY
+                if actual != required:
                     hard_violations.append({
-                        'type': 'missing_hours',
-                        'description': f'{section}: {subject.name} has {actual}/{required} hours',
+                        'type': 'credit_mismatch',
+                        'description': f'{section}: {subject.short_name} has {actual}/{required} hours',
                         'affected': []
                     })
         

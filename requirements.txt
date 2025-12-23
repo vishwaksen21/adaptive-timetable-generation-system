@@ -1,4 +1,4 @@
-# VTU Timetable Generation System - Requirements
+# CMRIT Timetable Generation System - Requirements
 
 # Core Dependencies
 flask>=2.3.0
