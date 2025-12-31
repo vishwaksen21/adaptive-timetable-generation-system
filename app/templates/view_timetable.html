@@ -226,18 +226,15 @@
                                         {% if period_idx < row.periods|length %}
                                             {% set slot = row.periods[period_idx] %}
                                             {% if slot.is_empty %}
-                                            <td>-</td>
+                                            <td>FREE</td>
                                             {% else %}
                                             <td>
                                                 {% for entry in slot.entries %}
                                                 <div class="class-entry {{ entry.type }}">
                                                     <div class="subject">{{ entry.subject }}</div>
-                                                    <div class="details">
-                                                        {{ entry.faculty }} / {{ entry.room }}
-                                                        {% if entry.batch %}
-                                                        <br><small>({{ entry.batch }})</small>
-                                                        {% endif %}
-                                                    </div>
+                                                    {% if entry.batch %}
+                                                    <div class="details"><small>({{ entry.batch }})</small></div>
+                                                    {% endif %}
                                                 </div>
                                                 {% endfor %}
                                             </td>

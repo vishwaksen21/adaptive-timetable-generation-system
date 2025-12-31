@@ -118,10 +118,11 @@ class TimetableScheduler:
                         f"Section {section} already has lab at {day} P{period}"
                     )
 
-        # 2. SAME SUBJECT TWICE IN A DAY (VTU-friendly HARD constraint)
-        for (d, _), entries in self.timetable.get(section, {}).items():
-            if d == day:
-                if any(e.subject_code == entry.subject_code for e in entries):
+        # 2. SAME SUBJECT TWICE IN A DAY (THEORY ONLY)
+        # Labs/activities are allowed to repeat due to block/parallel batch semantics.
+        if entry.subject_type == "theory" and not entry.is_lab_continuation:
+            for (d, _), entries in self.timetable.get(section, {}).items():
+                if d == day and any(e.subject_code == entry.subject_code for e in entries):
                     violations.append(
                         f"{entry.subject_short} already scheduled on {day} for {section}"
                     )
@@ -214,17 +215,6 @@ class TimetableScheduler:
         day = entry.day
         period = entry.period
         
-        # VTU 2022: Hard stop when subject credits are already complete
-        # This prevents over-allocation and ensures exact credit match
-        if not entry.is_lab_continuation:
-            subject_config = self.subjects_config.get(entry.subject_code, None)
-            if subject_config:
-                current_hours = self.subject_hours_allocated[section].get(entry.subject_code, 0)
-                if current_hours >= subject_config.hours_per_week:
-                    if self.debug_mode:
-                        logger.debug(f"Entry rejected: {entry.subject_code} already has {current_hours}/{subject_config.hours_per_week} hours")
-                    return False
-        
         # Add to timetable
         if (day, period) not in self.timetable[section]:
             self.timetable[section][(day, period)] = []
@@ -236,9 +226,8 @@ class TimetableScheduler:
         # Track room schedule (append to list for parallel lab support)
         self.room_schedule[entry.room_number][(day, period)].append(entry)
         
-        # Track subject hours - only count once per lab session (not continuation)
-        if not entry.is_lab_continuation:
-            self.subject_hours_allocated[section][entry.subject_code] += 1
+        # Track subject hours in actual periods (continuations included)
+        self.subject_hours_allocated[section][entry.subject_code] += 1
         
         return True
     
@@ -270,9 +259,8 @@ class TimetableScheduler:
                 if e != entry
             ]
         
-        # Update subject hours - only decrement for non-continuation entries
-        if not entry.is_lab_continuation:
-            self.subject_hours_allocated[section][entry.subject_code] -= 1
+        # Update subject hours in actual periods (continuations included)
+        self.subject_hours_allocated[section][entry.subject_code] -= 1
     
     def get_available_slots(self, section: str) -> List[Tuple[str, int]]:
         """Get all available slots for a section"""
@@ -288,7 +276,7 @@ class TimetableScheduler:
                               for_batch_lab: bool = False, section: str = None) -> List:
         """Get available faculty for a subject at a given time"""
         available = []
-        for faculty in faculty_list:
+        for faculty in sorted(faculty_list, key=lambda f: getattr(f, 'id', '')):
             if subject_code in faculty.subjects:
                 # Check if faculty is available
                 is_available = True
@@ -308,13 +296,13 @@ class TimetableScheduler:
                     # Check unavailable slots
                     if (day, period) not in faculty.unavailable_slots:
                         available.append(faculty)
-        return available
+        return sorted(available, key=lambda f: getattr(f, 'id', ''))
     
     def get_available_rooms(self, room_type: str, day: str, 
                             period: int, room_list: List, fallback_to_any: bool = False) -> List:
         """Get available rooms of a type at a given time"""
         available = []
-        for room in room_list:
+        for room in sorted(room_list, key=lambda r: getattr(r, 'number', '')):
             if room.room_type == room_type or room_type == "any":
                 # Check if room has no entries at this slot
                 if not self.room_schedule[room.number][(day, period)]:
@@ -322,12 +310,12 @@ class TimetableScheduler:
         
         # If no specific room type available and fallback is allowed, try classrooms
         if not available and fallback_to_any and room_type not in ["classroom", "computer_lab", "electronics_lab"]:
-            for room in room_list:
+            for room in sorted(room_list, key=lambda r: getattr(r, 'number', '')):
                 if room.room_type == "classroom":
                     if not self.room_schedule[room.number][(day, period)]:
                         available.append(room)
-        
-        return available
+
+        return sorted(available, key=lambda r: getattr(r, 'number', ''))
 
 
 class ConstraintSatisfactionScheduler(TimetableScheduler):
@@ -343,392 +331,480 @@ class ConstraintSatisfactionScheduler(TimetableScheduler):
                        faculty_list: List, room_list: List,
                        section_batches: Dict[str, List[str]]) -> Tuple[bool, Dict]:
         """
-        Fast greedy scheduling method - no backtracking, just place items where possible
+        Deterministic credit-based round-robin scheduler (CMRIT deployment rules).
+
+        Non-negotiable enforcement:
+        - Exact hours_per_week matching (period-level)
+        - No internal gaps within a day's scheduled block (per section)
+        - Days are filled sequentially (Mon→Sat)
+        - Labs are strict 2-hour continuous blocks; cannot cross short break or lunch
+        - Students stay in ONE fixed classroom for all theory/audit/tyl/9lpa
+        - No randomness; no priority-based ordering
         """
         start_time = time.time()
         self.initialize_state(sections)
-        
-        # VTU 2022: Store subjects config for credit checking in add_entry()
+
         self.subjects_config = {s.code: s for s in subjects}
-        
-        # Fixed slots configuration
-        # Wednesday: Period 6 (14:00-15:00) = YOGA, Period 7 (15:00-16:00) = CLUB
-        # Thursday: Period 6-7 (14:00-16:00) = Mini Project / Project Phase 1
+        subjects_by_code = {s.code: s for s in subjects}
+
         fixed_slot_types = {
             'YOGA': [('Wednesday', 6)],
             'CLUB': [('Wednesday', 7)],
-            'MP': [('Thursday', 6), ('Thursday', 7)],    # Mini project (sem 5)
-            'PP1': [('Thursday', 6), ('Thursday', 7)],   # Project Phase 1 (sem 6)
+            'MP': [('Thursday', 6), ('Thursday', 7)],
+            'PP1': [('Thursday', 6), ('Thursday', 7)],
         }
-        
-        # First, schedule fixed activities for all sections
+
+        home_rooms = self._assign_home_classrooms(sections, room_list)
+
+        fixed_periods_by_section: Dict[str, Dict[str, Set[int]]] = {
+            s: defaultdict(set) for s in sections
+        }
+        fixed_subject_codes: Set[str] = set()
+
+        # 1) Place fixed slots first (deterministic faculty/room choice)
+        # Non-negotiable: if a fixed slot cannot be placed, scheduling fails.
         fixed_scheduled = 0
-        for section in sections:
-            for subject in subjects:
-                if subject.short_name in fixed_slot_types:
-                    slots = fixed_slot_types[subject.short_name]
-                    
-                    for day, period in slots:
-                        # Find a faculty and room for this fixed slot
-                        available_faculty = self.get_available_faculty(
-                            subject.code, day, period, faculty_list
-                        )
-                        room_type = self._get_room_type_for_subject(subject)
-                        available_rooms = self.get_available_rooms(room_type, day, period, room_list, fallback_to_any=True)
-                        
-                        if available_faculty and available_rooms:
-                            faculty = available_faculty[0]
-                            room = available_rooms[0]
-                            
-                            entry = TimeSlotEntry(
-                                day=day,
-                                period=period,
-                                section=section,
-                                subject_code=subject.code,
-                                subject_name=subject.name,
-                                subject_short=subject.short_name,
-                                subject_type=subject.subject_type,
-                                faculty_id=faculty.id,
-                                faculty_name=faculty.short_name,
-                                room_number=room.number,
-                                batch=None,
-                                is_lab_continuation=(period > slots[0][1]) if len(slots) > 1 else False
+        fixed_required = 0
+        for section in sorted(sections):
+            for subject in sorted(subjects, key=lambda s: getattr(s, 'code', '')):
+                if subject.short_name not in fixed_slot_types:
+                    continue
+                fixed_subject_codes.add(subject.code)
+                slots = fixed_slot_types[subject.short_name]
+                fixed_required += len(slots)
+                for idx, (day, period) in enumerate(slots):
+                    faculty = self.get_available_faculty(subject.code, day, period, faculty_list)
+                    room = self._select_room_for_subject(section, subject, day, period, room_list, home_rooms)
+                    if not faculty or not room:
+                        if self.debug_mode:
+                            logger.warning(
+                                f"Could not schedule fixed slot {subject.short_name} for {section} on {day} P{period}"
                             )
-                            if self.add_entry(entry):
-                                fixed_scheduled += 1
-                        else:
-                            if self.debug_mode:
-                                logger.warning(f"Could not schedule fixed slot {subject.short_name} for {section} on {day} P{period}: faculty={len(available_faculty) if available_faculty else 0}, rooms={len(available_rooms) if available_rooms else 0}")
-        
+                        self.generation_time = time.time() - start_time
+                        return False, self.timetable
+
+                    entry = TimeSlotEntry(
+                        day=day,
+                        period=period,
+                        section=section,
+                        subject_code=subject.code,
+                        subject_name=subject.name,
+                        subject_short=subject.short_name,
+                        subject_type=subject.subject_type,
+                        faculty_id=faculty[0].id,
+                        faculty_name=faculty[0].short_name,
+                        room_number=room,
+                        batch=None,
+                        is_lab_continuation=(idx > 0)
+                    )
+                    if self.add_entry(entry):
+                        fixed_scheduled += 1
+                        fixed_periods_by_section[section][day].add(period)
+                    else:
+                        # add_entry() rejected due to a hard constraint
+                        self.generation_time = time.time() - start_time
+                        return False, self.timetable
+
+        if fixed_scheduled != fixed_required:
+            self.generation_time = time.time() - start_time
+            return False, self.timetable
+
         if self.debug_mode:
             logger.info(f"Scheduled {fixed_scheduled} fixed slot entries")
+
+        # 2) Fill remaining slots as contiguous day blocks in day order
+        for section in sorted(sections):
+            required_periods = sum(int(getattr(s, 'hours_per_week', 0)) for s in subjects)
+            day_targets = self._build_day_targets(required_periods)
+            day_blocks = self._build_day_blocks(day_targets, fixed_periods_by_section[section])
+
+            if self.debug_mode:
+                logger.info(f"Section {section}: required_periods={required_periods}, day_blocks={day_blocks}")
+
+            rr_state = self._init_round_robin_state(subjects, fixed_subject_codes)
+
+            for day in self.days:
+                start_p, end_p = day_blocks[day]
+                consecutive_theory = 0
+
+                for period in range(start_p, end_p + 1):
+                    if (day, period) in self.timetable.get(section, {}):
+                        # Fixed slot already placed
+                        entries = self.timetable[section][(day, period)]
+                        if any(self._is_theory_session(subjects_by_code.get(e.subject_code)) for e in entries):
+                            consecutive_theory += 1
+                        else:
+                            consecutive_theory = 0
+                        continue
+
+                    choice = self._select_subject_for_slot(
+                        section=section,
+                        day=day,
+                        period=period,
+                        day_block=(start_p, end_p),
+                        rr_state=rr_state,
+                        subjects_by_code=subjects_by_code,
+                        section_batches=section_batches,
+                        home_rooms=home_rooms,
+                        faculty_list=faculty_list,
+                        room_list=room_list,
+                        consecutive_theory=consecutive_theory
+                    )
+                    if choice is None:
+                        if self.debug_mode:
+                            logger.debug(
+                                "Greedy failed to select subject: %s %s P%s (block %s-%s), consecutive_theory=%s, remaining=%s",
+                                section,
+                                day,
+                                period,
+                                start_p,
+                                end_p,
+                                consecutive_theory,
+                                {c: rr_state['remaining'].get(c, 0) for c in rr_state.get('codes', []) if rr_state['remaining'].get(c, 0) > 0}
+                            )
+                        # Try to continue with next period - maybe we can place something later
+                        consecutive_theory = 0
+                        continue
+
+                    subject = choice['subject']
+                    duration = choice['duration']
+                    batches = choice.get('batches', [])
+
+                    if choice.get('is_parallel_lab', False):
+                        ok = self._place_parallel_batch_block(section, subject, day, period, duration, batches, faculty_list, room_list)
+                    else:
+                        ok = self._place_single_block(section, subject, day, period, duration, faculty_list, room_list, home_rooms)
+
+                    if not ok:
+                        logger.debug(
+                            "Greedy failed to place subject: %s %s P%s -> %s (%s, duration=%s)",
+                            section,
+                            day,
+                            period,
+                            getattr(subject, 'short_name', getattr(subject, 'code', 'UNKNOWN')),
+                            getattr(subject, 'subject_type', 'unknown'),
+                            duration
+                        )
+                        self.generation_time = time.time() - start_time
+                        return False, self.timetable
+
+                    if self._is_theory_session(subject):
+                        consecutive_theory += duration
+                    else:
+                        consecutive_theory = 0
+
+        self.generation_time = time.time() - start_time
+        return True, self.timetable
+
+    def _assign_home_classrooms(self, sections: List[str], room_list: List) -> Dict[str, str]:
+        classrooms = sorted([r for r in room_list if getattr(r, 'room_type', '') == 'classroom'],
+                            key=lambda r: getattr(r, 'number', ''))
+        if len(classrooms) < len(sections):
+            raise ValueError("Not enough classrooms to assign one fixed theory room per section")
+        return {section: classrooms[idx].number for idx, section in enumerate(sorted(sections))}
+
+    def _is_theory_session(self, subject) -> bool:
+        if subject is None:
+            return False
+        return getattr(subject, 'subject_type', '') in ("theory", "audit", "tyl", "9lpa", "yoga", "club")
+
+    def _select_room_for_subject(self, section: str, subject, day: str, period: int,
+                                 room_list: List, home_rooms: Dict[str, str]) -> Optional[str]:
+        # Students stay in one classroom for all theory-like sessions
+        if getattr(subject, 'subject_type', '') in ("theory", "audit", "tyl", "9lpa"):
+            room_num = home_rooms[section]
+            if not self.room_schedule[room_num][(day, period)]:
+                return room_num
+
+            # Fallback to any free classroom ONLY if home room is unavailable
+            rooms = self.get_available_rooms("classroom", day, period, room_list)
+            return rooms[0].number if rooms else None
+
+        room_type = self._get_room_type_for_subject(subject)
+        fallback = getattr(subject, 'subject_type', '') in ['tyl', '9lpa', 'yoga', 'club', 'audit']
+        rooms = self.get_available_rooms(room_type, day, period, room_list, fallback_to_any=fallback)
+        return rooms[0].number if rooms else None
+
+    def _build_day_targets(self, required_periods: int) -> Dict[str, int]:
+        base = required_periods // len(self.days)
+        rem = required_periods % len(self.days)
+        targets: Dict[str, int] = {}
+        for idx, day in enumerate(self.days):
+            targets[day] = base + (1 if idx < rem else 0)
+        return targets
+
+    def _build_day_blocks(self, day_targets: Dict[str, int], fixed_periods_by_day: Dict[str, Set[int]]) -> Dict[str, Tuple[int, int]]:
+        """
+        Build contiguous day blocks that fill morning slots first and leave free periods after 1pm.
         
-        # Create scheduling order - prioritize by subject priority and type
-        # Exclude fixed slot subjects
-        scheduling_queue = self._create_scheduling_queue(sections, subjects, section_batches)
-        scheduling_queue = [item for item in scheduling_queue 
-                          if item['subject'].short_name not in fixed_slot_types]
-        
-        if self.debug_mode:
-            logger.info(f"Greedy scheduling {len(scheduling_queue)} items (excluding fixed)")
-        
-        scheduled_count = 0
-        failed_items = []
-        
-        for item in scheduling_queue:
-            section = item['section']
-            subject = item['subject']
-            batch = item.get('batch')
-            duration = item['duration']
-            is_parallel_lab = item.get('is_parallel_lab', False)
-            batches = item.get('batches', [])
+        Strategy:
+        - Fill morning periods first (periods 1-4 before lunch)
+        - Then fill afternoon if needed (periods 5-7 after 1pm)
+        - Leave free periods only after 1pm (periods 5-7)
+        - Avoid too many 8am starts (period 1) unless necessary
+        """
+        blocks: Dict[str, Tuple[int, int]] = {}
+        for day in self.days:
+            target = day_targets[day]
+            fixed_periods = fixed_periods_by_day.get(day, set())
+            fixed_min = min(fixed_periods) if fixed_periods else 0
+            fixed_max = max(fixed_periods) if fixed_periods else 0
+
+            # Determine start and end based on target and fixed periods
+            if target >= 6:
+                # Need 6+ periods: fill P1-P4 (morning) + P5-P6 (afternoon), P7 may be free
+                start_p = 1
+                end_p = target
+            elif target == 5:
+                # Need 5 periods: fill P2-P4 (morning) + P5-P6 (afternoon), leave P1 and P7 free
+                start_p = 2
+                end_p = 6
+            elif target == 4:
+                # Need 4 periods: fill P2-P4 (morning) + P5, leave P1, P6-P7 free
+                start_p = 2
+                end_p = 5
+            else:
+                # Need 3 or fewer: fill morning periods P2-P4
+                start_p = 2
+                end_p = min(4, 2 + target - 1)
             
-            # Get available slots - prefer earlier periods, avoid period 7
-            available_slots = self._get_valid_slots_for_item(section, subject, duration, is_parallel_lab)
+            # Adjust for fixed periods
+            if fixed_periods:
+                # Must include all fixed periods in the range
+                if fixed_min < start_p:
+                    start_p = fixed_min
+                if fixed_max > end_p:
+                    end_p = fixed_max
+                    
+                # If fixed periods force us to have specific coverage, adjust
+                # For example, if fixed is at P6-P7, we need to ensure we fill morning first
+                if fixed_min >= 5:  # Fixed periods are after lunch
+                    # Fill morning periods first (2-4), then include fixed
+                    morning_slots = min(4, target)
+                    if start_p > 2:
+                        start_p = 2
+                    # End must include fixed periods
+                    end_p = fixed_max
+
+            # Make sure we don't exceed available periods
+            if end_p > self.periods_per_day:
+                end_p = self.periods_per_day
             
-            if not available_slots:
-                if self.debug_mode:
-                    logger.warning(f"No available slots for {subject.short_name} in {section}")
-                failed_items.append(item)
+            # Ensure we have enough slots for target
+            if end_p - start_p + 1 < target:
+                # Expand to fit target, preferring to start earlier
+                if start_p > 1:
+                    start_p = max(1, end_p - target + 1)
+                else:
+                    end_p = min(self.periods_per_day, start_p + target - 1)
+
+            blocks[day] = (start_p, end_p)
+        return blocks
+
+    def _init_round_robin_state(self, subjects: List, fixed_subject_codes: Set[str]) -> dict:
+        eligible = [s for s in subjects if getattr(s, 'code', '') not in fixed_subject_codes]
+        eligible = sorted(eligible, key=lambda s: getattr(s, 'code', ''))
+        weights = {s.code: int(getattr(s, 'hours_per_week', 0)) for s in eligible}
+        remaining = {s.code: int(getattr(s, 'hours_per_week', 0)) for s in eligible}
+        current = {s.code: 0 for s in eligible}
+        return {'codes': [s.code for s in eligible], 'weights': weights, 'remaining': remaining, 'current': current}
+
+    def _subject_duration(self, subject) -> int:
+        if getattr(subject, 'subject_type', '') == 'lab':
+            return int(getattr(subject, 'lab_duration', 2))
+        return 1
+
+    def _can_start_two_hour_block(self, start_period: int) -> bool:
+        # Valid 2-hour starts: (1,2), (3,4), (5,6)
+        return start_period in (1, 3, 5)
+
+    def _select_subject_for_slot(self, section: str, day: str, period: int, day_block: Tuple[int, int],
+                                 rr_state: dict, subjects_by_code: Dict[str, any], section_batches: Dict[str, List[str]],
+                                 home_rooms: Dict[str, str], faculty_list: List, room_list: List,
+                                 consecutive_theory: int) -> Optional[dict]:
+        start_p, end_p = day_block
+
+        active = [c for c in rr_state['codes'] if rr_state['remaining'].get(c, 0) > 0]
+        if not active:
+            return None
+
+        total_weight = sum(rr_state['weights'][c] for c in active)
+
+        best = None
+        best_score = None
+        fallback = None  # Fallback option if max_consecutive is violated but no other choice
+
+        for code in active:
+            subject = subjects_by_code[code]
+            duration = self._subject_duration(subject)
+
+            if rr_state['remaining'][code] < duration:
+                continue
+
+            # Max 3 consecutive theory-like periods/day (soft constraint - can be relaxed if needed)
+            exceeds_consecutive = self._is_theory_session(subject) and consecutive_theory + duration > self.max_consecutive_theory
+            
+            # No same theory subject twice in a day
+            if getattr(subject, 'subject_type', '') == 'theory':
+                already_today = False
+                for (d, _), entries in self.timetable.get(section, {}).items():
+                    if d == day and any(e.subject_code == code for e in entries):
+                        already_today = True
+                        break
+                if already_today:
+                    continue
+
+            # Strict 2-hour blocks: must fit and not cross breaks
+            if duration == 2:
+                if period + 1 > end_p:
+                    continue
+                if not self._can_start_two_hour_block(period):
+                    continue
+                if (day, period) in self.timetable.get(section, {}) or (day, period + 1) in self.timetable.get(section, {}):
+                    continue
+
+            # Feasibility check for faculty/rooms
+            if getattr(subject, 'subject_type', '') == 'lab' and getattr(subject, 'batches_required', False):
+                batches = section_batches.get(section, [])
+                if not batches:
+                    continue
+                if not self._feasible_parallel_batch_block(section, subject, day, period, duration, batches, faculty_list, room_list):
+                    continue
+            else:
+                if not self._feasible_single_block(section, subject, day, period, duration, faculty_list, room_list, home_rooms):
+                    continue
+
+            score = rr_state['current'][code] + rr_state['weights'][code]
+            
+            # If this exceeds consecutive constraint, store as fallback but keep looking
+            if exceeds_consecutive:
+                if fallback is None or score > fallback.get('score', -float('inf')):
+                    fallback = {
+                        'subject': subject,
+                        'duration': duration,
+                        'is_parallel_lab': (getattr(subject, 'subject_type', '') == 'lab' and getattr(subject, 'batches_required', False)),
+                        'batches': section_batches.get(section, []),
+                        'score': score
+                    }
                 continue
             
-            # Sort slots with randomization to prevent same subject always getting first period
-            # 1. Saturday: prefer periods 1-4 (end by 12:20), avoid 5-7 unless necessary
-            # 2. Weekdays: avoid period 7 (15:00-16:00) unless necessary
-            # 3. Add random factor to break ties and distribute subjects
-            # 4. Slots that fill gaps (no breaks between classes)
-            
-            # Shuffle slots with same priority to prevent deterministic bias
-            random.shuffle(available_slots)
-            
-            def slot_priority(slot):
-                day, start_period = slot
-                day_idx = self.days.index(day) if day in self.days else 0
-                
-                # Add randomization factor for first period to prevent same subject always first
-                random_factor = random.random() * 0.5 if start_period == 1 else 0
-                end_period = start_period + duration - 1
-                
-                # Saturday penalty - prefer ending by period 4 (12:20)
-                is_saturday = (day == 'Saturday')
-                saturday_afternoon = is_saturday and end_period >= 5
-                
-                # General late period penalty
-                uses_period_7 = end_period >= 7
-                uses_period_6 = end_period >= 6
-                
-                # Check if this slot fills a gap
-                fills_gap = False
-                if section in self.timetable:
-                    # Check if there's a class before this slot
-                    has_before = any((day, p) in self.timetable[section] 
-                                    for p in range(1, start_period))
-                    # Check if there's a class after this slot
-                    has_after = any((day, p) in self.timetable[section] 
-                                   for p in range(start_period + duration, 8))
-                    fills_gap = has_before and has_after
-                
-                # Priority tuple: lower is better
-                # (saturday_afternoon, uses_period_7, uses_period_6, NOT fills_gap, random_factor, start_period, day_idx)
-                return (saturday_afternoon, uses_period_7, uses_period_6, -int(fills_gap), random_factor, start_period, day_idx)
-            
-            available_slots.sort(key=slot_priority)
-            
-            item_scheduled = False
-            
-            for day, start_period in available_slots:
-                self.total_attempts += 1
-                
-                entries_added = []
-                success = True
-                
-                # Handle parallel lab (all batches at same time)
-                if is_parallel_lab and batches:
-                    for p in range(start_period, start_period + duration):
-                        # Need faculty and room for EACH batch
-                        available_faculty = self.get_available_faculty(
-                            subject.code, day, p, faculty_list,
-                            for_batch_lab=True, section=section
-                        )
-                        room_type = self._get_room_type_for_subject(subject)
-                        available_rooms = self.get_available_rooms(room_type, day, p, room_list)
-                        
-                        # For batch labs: need at least 1 faculty (can supervise multiple batches)
-                        # and enough rooms for all batches
-                        if not available_faculty or len(available_rooms) < len(batches):
-                            success = False
-                            break
-                        
-                        # Assign each batch a faculty (can share) and unique room
-                        for batch_idx, batch_name in enumerate(batches):
-                            # Faculty can supervise multiple batches
-                            faculty = available_faculty[batch_idx % len(available_faculty)]
-                            # Each batch needs its own room
-                            room = available_rooms[batch_idx]
-                            
-                            entry = TimeSlotEntry(
-                                day=day,
-                                period=p,
-                                section=section,
-                                subject_code=subject.code,
-                                subject_name=subject.name,
-                                subject_short=subject.short_name,
-                                subject_type=subject.subject_type,
-                                faculty_id=faculty.id,
-                                faculty_name=faculty.short_name,
-                                room_number=room.number,
-                                batch=batch_name,
-                                is_lab_continuation=(p > start_period)
-                            )
-                            
-                            if self.add_entry(entry):
-                                entries_added.append(entry)
-                            else:
-                                success = False
-                                break
-                        
-                        if not success:
-                            break
-                    
-                    expected_entries = duration * len(batches)
+            # This satisfies the consecutive constraint
+            if best is None or score > best_score or (score == best_score and code < best['subject'].code):
+                best = {
+                    'subject': subject,
+                    'duration': duration,
+                    'is_parallel_lab': (getattr(subject, 'subject_type', '') == 'lab' and getattr(subject, 'batches_required', False)),
+                    'batches': section_batches.get(section, [])
+                }
+                best_score = score
+
+        # If no perfect match, use fallback (relaxing consecutive constraint)
+        if best is None and fallback is not None:
+            best = {k: v for k, v in fallback.items() if k != 'score'}
+            if self.debug_mode:
+                logger.debug(f"Relaxing consecutive theory constraint for {fallback['subject'].short_name} at {day} P{period}")
+
+        if best is None:
+            return None
+
+        for c in active:
+            rr_state['current'][c] += rr_state['weights'][c]
+        chosen = best['subject'].code
+        rr_state['current'][chosen] -= total_weight
+        rr_state['remaining'][chosen] -= best['duration']
+
+        return best
+
+    def _feasible_single_block(self, section: str, subject, day: str, start_period: int, duration: int,
+                               faculty_list: List, room_list: List, home_rooms: Dict[str, str]) -> bool:
+        for p in range(start_period, start_period + duration):
+            if (day, p) in self.timetable.get(section, {}):
+                return False
+            faculty = self.get_available_faculty(subject.code, day, p, faculty_list)
+            room = self._select_room_for_subject(section, subject, day, p, room_list, home_rooms)
+            if not faculty or not room:
+                return False
+        return True
+
+    def _feasible_parallel_batch_block(self, section: str, subject, day: str, start_period: int, duration: int,
+                                       batches: List[str], faculty_list: List, room_list: List) -> bool:
+        room_type = self._get_room_type_for_subject(subject)
+        for p in range(start_period, start_period + duration):
+            if (day, p) in self.timetable.get(section, {}):
+                return False
+            faculty = self.get_available_faculty(subject.code, day, p, faculty_list, for_batch_lab=True, section=section)
+            rooms = self.get_available_rooms(room_type, day, p, room_list)
+            if not faculty or len(rooms) < len(batches):
+                return False
+        return True
+
+    def _place_single_block(self, section: str, subject, day: str, start_period: int, duration: int,
+                            faculty_list: List, room_list: List, home_rooms: Dict[str, str]) -> bool:
+        entries_added = []
+        for p in range(start_period, start_period + duration):
+            faculty = self.get_available_faculty(subject.code, day, p, faculty_list)
+            room = self._select_room_for_subject(section, subject, day, p, room_list, home_rooms)
+            if not faculty or not room:
+                for e in entries_added:
+                    self.remove_entry(e)
+                return False
+            entry = TimeSlotEntry(
+                day=day,
+                period=p,
+                section=section,
+                subject_code=subject.code,
+                subject_name=subject.name,
+                subject_short=subject.short_name,
+                subject_type=subject.subject_type,
+                faculty_id=faculty[0].id,
+                faculty_name=faculty[0].short_name,
+                room_number=room,
+                batch=None,
+                is_lab_continuation=(p > start_period)
+            )
+            if self.add_entry(entry):
+                entries_added.append(entry)
+            else:
+                for e in entries_added:
+                    self.remove_entry(e)
+                return False
+        return True
+
+    def _place_parallel_batch_block(self, section: str, subject, day: str, start_period: int, duration: int,
+                                    batches: List[str], faculty_list: List, room_list: List) -> bool:
+        room_type = self._get_room_type_for_subject(subject)
+        entries_added = []
+        for p in range(start_period, start_period + duration):
+            faculty = self.get_available_faculty(subject.code, day, p, faculty_list, for_batch_lab=True, section=section)
+            rooms = self.get_available_rooms(room_type, day, p, room_list)
+            if not faculty or len(rooms) < len(batches):
+                for e in entries_added:
+                    self.remove_entry(e)
+                return False
+            for b_idx, batch_name in enumerate(batches):
+                f = faculty[b_idx % len(faculty)]
+                r = rooms[b_idx]
+                entry = TimeSlotEntry(
+                    day=day,
+                    period=p,
+                    section=section,
+                    subject_code=subject.code,
+                    subject_name=subject.name,
+                    subject_short=subject.short_name,
+                    subject_type=subject.subject_type,
+                    faculty_id=f.id,
+                    faculty_name=f.short_name,
+                    room_number=r.number,
+                    batch=batch_name,
+                    is_lab_continuation=(p > start_period)
+                )
+                if self.add_entry(entry):
+                    entries_added.append(entry)
                 else:
-                    # Regular (non-parallel) scheduling
-                    for p in range(start_period, start_period + duration):
-                        # Get available faculty
-                        available_faculty = self.get_available_faculty(
-                            subject.code, day, p, faculty_list
-                        )
-                        
-                        if not available_faculty:
-                            success = False
-                            break
-                        
-                        # Get available rooms (with fallback for special subject types)
-                        room_type = self._get_room_type_for_subject(subject)
-                        fallback = subject.subject_type in ['tyl', '9lpa', 'yoga', 'club', 'audit']
-                        available_rooms = self.get_available_rooms(room_type, day, p, room_list, fallback_to_any=fallback)
-                        
-                        if not available_rooms:
-                            success = False
-                            break
-                        
-                        # Create entry
-                        faculty = random.choice(available_faculty)
-                        room = random.choice(available_rooms)
-                        
-                        entry = TimeSlotEntry(
-                            day=day,
-                            period=p,
-                            section=section,
-                            subject_code=subject.code,
-                            subject_name=subject.name,
-                            subject_short=subject.short_name,
-                            subject_type=subject.subject_type,
-                            faculty_id=faculty.id,
-                            faculty_name=faculty.short_name,
-                            room_number=room.number,
-                            batch=batch,
-                            is_lab_continuation=(p > start_period)
-                        )
-                        
-                        if self.add_entry(entry):
-                            entries_added.append(entry)
-                        else:
-                            success = False
-                            break
-                    
-                    expected_entries = duration
-                
-                if success and len(entries_added) == expected_entries:
-                    scheduled_count += 1
-                    item_scheduled = True
-                    break
-                else:
-                    # Remove partial entries
-                    for entry in entries_added:
-                        self.remove_entry(entry)
-            
-            if not item_scheduled:
-                failed_items.append(item)
-        
-        # Second pass: Try to schedule failed items with relaxed constraints
-        if failed_items:
-            for item in failed_items[:]:  # Copy list since we're modifying
-                section = item['section']
-                subject = item['subject']
-                batch = item.get('batch')
-                duration = item['duration']
-                is_parallel_lab = item.get('is_parallel_lab', False)
-                batches = item.get('batches', [])
-                
-                # Get ALL slots including those that were previously considered bad
-                all_slots = []
-                for day in self.days:
-                    for period in range(1, self.periods_per_day - duration + 2):
-                        all_slots.append((day, period))
-                
-                random.shuffle(all_slots)
-                
-                for day, start_period in all_slots:
-                    # Check if slots are empty
-                    slots_empty = True
-                    for p in range(start_period, start_period + duration):
-                        if (day, p) in self.timetable.get(section, {}):
-                            existing = self.timetable[section][(day, p)]
-                            if not all(e.batch for e in existing):
-                                slots_empty = False
-                                break
-                    
-                    if not slots_empty:
-                        continue
-                    
-                    entries_added = []
-                    success = True
-                    
-                    if is_parallel_lab and batches:
-                        # Try parallel lab with relaxed faculty requirement
-                        for p in range(start_period, start_period + duration):
-                            available_faculty = self.get_available_faculty(
-                                subject.code, day, p, faculty_list,
-                                for_batch_lab=True, section=section
-                            )
-                            room_type = self._get_room_type_for_subject(subject)
-                            available_rooms = self.get_available_rooms(room_type, day, p, room_list)
-                            
-                            if not available_faculty or len(available_rooms) < len(batches):
-                                success = False
-                                break
-                            
-                            for batch_idx, batch_name in enumerate(batches):
-                                faculty = available_faculty[batch_idx % len(available_faculty)]
-                                room = available_rooms[batch_idx]
-                                
-                                entry = TimeSlotEntry(
-                                    day=day,
-                                    period=p,
-                                    section=section,
-                                    subject_code=subject.code,
-                                    subject_name=subject.name,
-                                    subject_short=subject.short_name,
-                                    subject_type=subject.subject_type,
-                                    faculty_id=faculty.id,
-                                    faculty_name=faculty.short_name,
-                                    room_number=room.number,
-                                    batch=batch_name,
-                                    is_lab_continuation=(p > start_period)
-                                )
-                                
-                                if self.add_entry(entry):
-                                    entries_added.append(entry)
-                                else:
-                                    success = False
-                                    break
-                            
-                            if not success:
-                                break
-                        
-                        expected_entries = duration * len(batches)
-                    else:
-                        for p in range(start_period, start_period + duration):
-                            available_faculty = self.get_available_faculty(
-                                subject.code, day, p, faculty_list
-                            )
-                            room_type = self._get_room_type_for_subject(subject)
-                            fallback = subject.subject_type in ['tyl', '9lpa', 'yoga', 'club', 'audit']
-                            available_rooms = self.get_available_rooms(room_type, day, p, room_list, fallback_to_any=fallback)
-                            
-                            if not available_faculty or not available_rooms:
-                                success = False
-                                break
-                            
-                            faculty = random.choice(available_faculty)
-                            room = random.choice(available_rooms)
-                            
-                            entry = TimeSlotEntry(
-                                day=day,
-                                period=p,
-                                section=section,
-                                subject_code=subject.code,
-                                subject_name=subject.name,
-                                subject_short=subject.short_name,
-                                subject_type=subject.subject_type,
-                                faculty_id=faculty.id,
-                                faculty_name=faculty.short_name,
-                                room_number=room.number,
-                                batch=batch,
-                                is_lab_continuation=(p > start_period)
-                            )
-                            
-                            if self.add_entry(entry):
-                                entries_added.append(entry)
-                            else:
-                                success = False
-                                break
-                        
-                        expected_entries = duration
-                    
-                    if success and len(entries_added) == expected_entries:
-                        scheduled_count += 1
-                        failed_items.remove(item)
-                        break
-                    else:
-                        for entry in entries_added:
-                            self.remove_entry(entry)
-        
-        self.generation_time = time.time() - start_time
-        
-        if self.debug_mode:
-            logger.info(f"Greedy scheduling completed in {self.generation_time:.2f}s")
-            logger.info(f"Scheduled {scheduled_count}/{len(scheduling_queue)} items")
-            if failed_items:
-                logger.warning(f"Failed to schedule {len(failed_items)} items:")
-                for item in failed_items[:10]:  # Show first 10
-                    logger.warning(f"  - {item['subject'].short_name} for {item['section']}")
-        
-        # Consider success if we scheduled most items
-        success = scheduled_count >= len(scheduling_queue) * 0.7
-        
-        return success, self.timetable
+                    for e in entries_added:
+                        self.remove_entry(e)
+                    return False
+        return True
         
     def schedule_with_backtracking(self, sections: List[str], subjects: List, 
                                    faculty_list: List, room_list: List,
@@ -747,98 +823,73 @@ class ConstraintSatisfactionScheduler(TimetableScheduler):
     def _create_scheduling_queue(self, sections: List[str], subjects: List,
                                   section_batches: Dict[str, List[str]]) -> List[dict]:
         """
-        Create ordered queue of items to schedule using CREDIT-BASED ROUND-ROBIN.
-        
-        VTU 2022 Compliance:
-        - No priority-based ordering (causes first-period domination)
-        - Round-robin distribution ensures even spread
-        - Labs scheduled as 2-hour blocks
+        Create ordered queue of items to schedule using CREDIT-BASED ROUND-ROBIN ONLY.
+
+        Legacy method: not used by the deterministic greedy scheduler path.
+        Kept for compatibility/debugging and for CSP backtracking experiments.
+
+        Deterministic properties:
+        - No randomness/shuffling
+        - No priority-based ordering
+        - Labs emitted as strict 2-hour blocks
+        - Elective/theory/special subjects spread by smooth weighted round-robin
         """
-        queue = []
-        
-        for section in sections:
+        queue: List[dict] = []
+
+        fixed_short = {"YOGA", "CLUB", "MP", "PP1"}
+        subjects_sorted = sorted(subjects, key=lambda s: getattr(s, 'code', ''))
+
+        for section in sorted(sections):
             batches = section_batches.get(section, [])
-            
-            # Separate subjects by type
-            theory_subjects = [s for s in subjects if s.subject_type in ["theory", "audit"]]
-            special_subjects = [s for s in subjects if s.subject_type in ["tyl", "9lpa", "yoga", "club"]]
-            lab_subjects = [s for s in subjects if s.subject_type == "lab"]
-            project_subjects = [s for s in subjects if s.subject_type == "mini_project"]
-            
-            # ROUND-ROBIN for theory and special activities
-            # Build credit buckets
-            credit_map = {}
-            for subject in theory_subjects + special_subjects:
-                credit_map[subject.code] = {
-                    'subject': subject,
-                    'remaining': subject.hours_per_week
+
+            eligible = [s for s in subjects_sorted if getattr(s, 'short_name', '') not in fixed_short]
+            weights = {s.code: int(getattr(s, 'hours_per_week', 0)) for s in eligible}
+            current = {s.code: 0 for s in eligible}
+            remaining_blocks: Dict[str, int] = {}
+            by_code = {s.code: s for s in eligible}
+
+            for s in eligible:
+                duration = 2 if s.subject_type == 'lab' else int(getattr(s, 'lab_duration', 0) or 1)
+                if s.subject_type == 'lab':
+                    duration = 2
+                remaining_blocks[s.code] = int(getattr(s, 'hours_per_week', 0)) // duration
+
+            while any(v > 0 for v in remaining_blocks.values()):
+                active = [c for c in [s.code for s in eligible] if remaining_blocks[c] > 0]
+                total = sum(weights[c] for c in active)
+
+                best_code = None
+                best_score = None
+                for c in active:
+                    score = current[c] + weights[c]
+                    if best_code is None or score > best_score or (score == best_score and c < best_code):
+                        best_code = c
+                        best_score = score
+
+                for c in active:
+                    current[c] += weights[c]
+                current[best_code] -= total
+                remaining_blocks[best_code] -= 1
+
+                subj = by_code[best_code]
+                duration = 2 if subj.subject_type == 'lab' else int(getattr(subj, 'lab_duration', 0) or 1)
+                if subj.subject_type == 'lab':
+                    duration = 2
+
+                is_parallel = (subj.subject_type == 'lab' and getattr(subj, 'batches_required', False) and bool(batches))
+
+                item = {
+                    'section': section,
+                    'subject': subj,
+                    'batch': None,
+                    'duration': duration,
+                    'is_parallel_lab': is_parallel
                 }
-            
-            # Round-robin based on remaining credits (ensures even distribution)
-            while any(v['remaining'] > 0 for v in credit_map.values()):
-                for code, data in credit_map.items():
-                    if data['remaining'] > 0:
-                        queue.append({
-                            'section': section,
-                            'subject': data['subject'],
-                            'batch': None,
-                            'duration': 1,
-                            'is_parallel_lab': False
-                        })
-                        data['remaining'] -= 1
-            
-            # Labs separately (block scheduling, 2-hour continuous)
-            for subject in lab_subjects:
-                if subject.batches_required and batches:
-                    # Batch lab - all batches run in parallel
-                    num_sessions = subject.hours_per_week // subject.lab_duration if subject.lab_duration > 0 else 1
-                    for _ in range(num_sessions):
-                        queue.append({
-                            'section': section,
-                            'subject': subject,
-                            'batches': batches,
-                            'batch': None,
-                            'duration': subject.lab_duration,
-                            'is_parallel_lab': True
-                        })
-                else:
-                    # Non-batch lab
-                    num_sessions = subject.hours_per_week // subject.lab_duration if subject.lab_duration > 0 else 1
-                    for _ in range(num_sessions):
-                        queue.append({
-                            'section': section,
-                            'subject': subject,
-                            'batch': None,
-                            'duration': subject.lab_duration,
-                            'is_parallel_lab': False
-                        })
-            
-            # Mini projects (block scheduling)
-            for subject in project_subjects:
-                num_sessions = subject.hours_per_week // (subject.lab_duration if subject.lab_duration > 0 else 1)
-                for _ in range(max(1, num_sessions)):
-                    queue.append({
-                        'section': section,
-                        'subject': subject,
-                        'batch': None,
-                        'duration': subject.lab_duration if subject.lab_duration > 0 else 1,
-                        'is_parallel_lab': False
-                    })
-        
-        # Shuffle the entire queue to prevent any deterministic ordering
-        # This ensures no subject consistently gets first period
-        random.shuffle(queue)
-        
-        # Move labs to front (they need contiguous slots, harder to place)
-        # But then shuffle everything again to remove first-period bias
-        labs = [item for item in queue if item['subject'].subject_type in ['lab', 'mini_project']]
-        non_labs = [item for item in queue if item['subject'].subject_type not in ['lab', 'mini_project']]
-        random.shuffle(labs)  # Shuffle labs too
-        
-        # Combine and shuffle again to remove lab-first bias completely
-        combined = labs + non_labs
-        random.shuffle(combined)
-        return combined
+                if is_parallel:
+                    item['batches'] = batches
+                queue.append(item)
+
+        return queue
     
     def _backtrack_schedule(self, queue: List[dict], index: int,
                             faculty_list: List, room_list: List,
@@ -912,9 +963,9 @@ class ConstraintSatisfactionScheduler(TimetableScheduler):
                     success = False
                     break
                 
-                # Create entry
-                faculty = random.choice(available_faculty)
-                room = random.choice(available_rooms)
+                # Deterministic choice
+                faculty = available_faculty[0]
+                room = available_rooms[0]
                 
                 entry = TimeSlotEntry(
                     day=day,
@@ -1267,6 +1318,15 @@ class GeneticAlgorithmScheduler(TimetableScheduler):
                             score -= 5  # Soft penalty
                     else:
                         consecutive = 1
+
+        # Penalize internal gaps within a day's scheduled periods
+        if sections:
+            for section in sections:
+                for day in self.days:
+                    periods = sorted(p for (d, p) in section_slots[section] if d == day)
+                    for i in range(1, len(periods)):
+                        if periods[i] != periods[i - 1] + 1:
+                            score -= 50
         
         return score
     

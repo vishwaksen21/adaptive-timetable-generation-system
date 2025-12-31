@@ -46,7 +46,7 @@ CORS(app)
 generated_timetables = {}
 
 # ============================================================
-# SUBJECT GROUPING FOR VTU-STYLE DISPLAY
+# SUBJECT GROUPING FOR CMRIT-STYLE DISPLAY
 # ============================================================
 # Groups subjects that should appear together in one cell
 SUBJECT_GROUPS = {
@@ -147,7 +147,7 @@ def convert_timetable_to_matrix(timetable: dict, section: str) -> list:
             if section in timetable and slot_key in timetable[section]:
                 entries = timetable[section][slot_key]
                 
-                # Use grouped entries for VTU-style display
+                # Use grouped entries for CMRIT-style display
                 cell_content = group_entries(entries)
                 
                 row['periods'].append({
@@ -198,7 +198,7 @@ def convert_timetable_to_json(timetable: dict, section: str) -> dict:
             
             if section in timetable and slot_key in timetable[section]:
                 entries = timetable[section][slot_key]
-                # Use grouped display for VTU-style format
+                # Use grouped display for CMRIT-style format (without faculty/room info)
                 grouped = group_entries(entries)
                 for g in grouped:
                     slot_data['classes'].append({
@@ -206,12 +206,19 @@ def convert_timetable_to_json(timetable: dict, section: str) -> dict:
                         'subject_name': entries[0].subject_name if entries else '',
                         'subject_short': g['subject'],
                         'subject_type': g['type'],
-                        'faculty_id': entries[0].faculty_id if entries else '',
-                        'faculty_name': g['faculty'],
-                        'room': g['room'],
                         'batch': g['batch'],
                         'is_continuation': any(e.is_lab_continuation for e in entries)
                     })
+            else:
+                # Empty slot marked as FREE
+                slot_data['classes'].append({
+                    'subject_code': '',
+                    'subject_name': 'Free Period',
+                    'subject_short': 'FREE',
+                    'subject_type': 'free',
+                    'batch': '',
+                    'is_continuation': False
+                })
             
             day_data['slots'].append(slot_data)
         
@@ -523,8 +530,8 @@ def export_timetable(timetable_id, format_type):
         output = io.StringIO()
         writer = csv.writer(output)
         
-        # Header
-        writer.writerow(['Section', 'Day', 'Period', 'Time', 'Subject', 'Faculty', 'Room', 'Batch', 'Type'])
+        # Header - removed Faculty and Room columns
+        writer.writerow(['Section', 'Day', 'Period', 'Time', 'Subject', 'Batch', 'Type'])
         
         for section in sections:
             for day in DAYS:
@@ -538,13 +545,12 @@ def export_timetable(timetable_id, format_type):
                                 period,
                                 get_time_display(period),
                                 entry.subject_short,
-                                entry.faculty_name,
-                                entry.room_number,
                                 entry.batch or '',
                                 entry.subject_type
                             ])
                     else:
-                        writer.writerow([section, day, period, get_time_display(period), '', '', '', '', ''])
+                        # Empty slot marked as FREE
+                        writer.writerow([section, day, period, get_time_display(period), 'FREE', '', ''])
         
         output.seek(0)
         return Response(

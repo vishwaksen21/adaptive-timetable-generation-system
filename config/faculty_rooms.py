@@ -47,6 +47,16 @@ FACULTY_LIST = {
         max_hours_per_day=6,
         max_hours_per_week=24
     ),
+
+    # Additional Mini Project mentor to support parallel fixed slots across sections
+    "F021": Faculty(
+        id="F021",
+        name="Mini Project Mentor 2",
+        short_name="MP2",
+        subjects=["BCMP508"],
+        max_hours_per_day=6,
+        max_hours_per_week=24
+    ),
     "F006": Faculty(
         id="F006",
         name="Prof. Lakshmi Devi",
@@ -165,10 +175,28 @@ FACULTY_LIST = {
         max_hours_per_day=6,
         max_hours_per_week=20
     ),
+    # Additional Yoga instructor for multi-section fixed slot (Wed P6)
+    "F022": Faculty(
+        id="F022",
+        name="Yoga Instructor 2",
+        short_name="YOGA-2",
+        subjects=["YOGA5", "YOGA3", "YOGA4", "YOGA6"],
+        max_hours_per_day=6,
+        max_hours_per_week=20
+    ),
     "F020": Faculty(
         id="F020",
         name="Club Activity Coordinator",
         short_name="CLUB-C",
+        subjects=["CLUB5", "CLUB3", "CLUB4", "CLUB6"],
+        max_hours_per_day=6,
+        max_hours_per_week=20
+    ),
+    # Additional Club coordinator for multi-section fixed slot (Wed P7)
+    "F023": Faculty(
+        id="F023",
+        name="Club Activity Coordinator 2",
+        short_name="CLUB-2",
         subjects=["CLUB5", "CLUB3", "CLUB4", "CLUB6"],
         max_hours_per_day=6,
         max_hours_per_week=20

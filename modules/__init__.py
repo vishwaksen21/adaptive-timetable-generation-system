@@ -1,3 +1,4 @@
-# Make modules a package and re-export common entry points
-from .ga_core import run_genetic_algorithm, generate_population
-from .adaptive_update import apply_adaptive_changes
+# Make modules a package
+# Note: ga_core and adaptive_update modules are not yet implemented
+# The DSA-based scheduler in algorithms/ is the main implementation
+

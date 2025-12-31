@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>CMRIT Timetable - CSDS-C</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        h1 { text-align: center; color: #333; }
+        h2 { text-align: center; color: #666; margin-bottom: 20px; }
+        table { border-collapse: collapse; width: 100%; margin: 20px auto; }
+        th, td { 
+            border: 2px solid #333; 
+            padding: 8px 4px; 
+            text-align: center; 
+            vertical-align: middle;
+            font-size: 11px;
+            min-width: 80px;
+        }
+        th { 
+            background-color: #4472C4; 
+            color: white; 
+            font-weight: bold;
+        }
+        .day-header { 
+            background-color: #5B9BD5; 
+            color: white;
+            font-weight: bold;
+            width: 80px;
+        }
+        .break { 
+            background-color: #FFC000; 
+            color: #333;
+            font-weight: bold;
+        }
+        .lunch { 
+            background-color: #92D050; 
+            color: #333;
+            font-weight: bold;
+        }
+        .lab { 
+            background-color: #E2EFDA; 
+        }
+        .theory { 
+            background-color: #DEEBF7; 
+        }
+        .empty { 
+            background-color: #F2F2F2; 
+        }
+        .subject-name { font-weight: bold; }
+        .faculty-name { font-size: 10px; color: #666; }
+        .batch-info { font-size: 9px; color: #888; }
+        @media print {
+            body { margin: 0; }
+            table { page-break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+    <h1>CLASS TIMETABLE</h1>
+    <h2>Section: CSDS-C</h2>
+    <table>
+        <tr>
+            <th>Day / Time</th>
+            <th>08:00-09:00</th>
+            <th>09:00-10:00</th>
+            <th class='break'>10:00-10:20</th>
+            <th>10:20-11:20</th>
+            <th>11:20-12:20</th>
+            <th class='lunch'>12:20-13:00</th>
+            <th>13:00-14:00</th>
+            <th>14:00-15:00</th>
+            <th>15:00-16:00</th>
+        </tr>
+        <tr>
+            <th class='day-header'>Monday</th>
+            <td class='theory'>SEPM</td>
+            <td class='theory'>CN</td>
+            <td class='break'>SHORT<br>BREAK</td>
+            <td class='theory'>TOC</td>
+            <td class='theory'>CV</td>
+            <td class='lunch'>LUNCH<br>BREAK</td>
+            <td class='lab' colspan='2'>CNL<br>C1 / C2 / C3</td>
+            <td class='theory'>FREE</td>
+        </tr>
+        <tr>
+            <th class='day-header'>Tuesday</th>
+            <td class='theory'>FREE</td>
+            <td class='theory'>RM</td>
+            <td class='break'>SHORT<br>BREAK</td>
+            <td class='theory'>9LPA</td>
+            <td class='theory'>TYL</td>
+            <td class='lunch'>LUNCH<br>BREAK</td>
+            <td class='lab' colspan='2'>SEPL<br>C1 / C2 / C3</td>
+            <td class='theory'>FREE</td>
+        </tr>
+        <tr>
+            <th class='day-header'>Wednesday</th>
+            <td class='theory'>FREE</td>
+            <td class='theory'>SEPM</td>
+            <td class='break'>SHORT<br>BREAK</td>
+            <td class='theory'>CN</td>
+            <td class='theory'>TOC</td>
+            <td class='lunch'>LUNCH<br>BREAK</td>
+            <td class='theory'>RM</td>
+            <td class='theory'>YOGA</td>
+            <td class='theory'>CLUB</td>
+        </tr>
+        <tr>
+            <th class='day-header'>Thursday</th>
+            <td class='theory'>FREE</td>
+            <td class='theory'>CV</td>
+            <td class='break'>SHORT<br>BREAK</td>
+            <td class='theory'>ES</td>
+            <td class='theory'>SEPM</td>
+            <td class='lunch'>LUNCH<br>BREAK</td>
+            <td class='theory'>CN</td>
+            <td class='theory'>MP</td>
+            <td class='theory'>FREE</td>
+        </tr>
+        <tr>
+            <th class='day-header'>Friday</th>
+            <td class='theory'>FREE</td>
+            <td class='theory'>TOC</td>
+            <td class='break'>SHORT<br>BREAK</td>
+            <td class='theory'>9LPA</td>
+            <td class='theory'>TYL</td>
+            <td class='lunch'>LUNCH<br>BREAK</td>
+            <td class='theory'>RM</td>
+            <td class='theory'>SEPM</td>
+            <td class='theory'>FREE</td>
+        </tr>
+        <tr>
+            <th class='day-header'>Saturday</th>
+            <td class='theory'>FREE</td>
+            <td class='theory'>CN</td>
+            <td class='break'>SHORT<br>BREAK</td>
+            <td class='theory'>TOC</td>
+            <td class='theory'>CV</td>
+            <td class='lunch'>LUNCH<br>BREAK</td>
+            <td class='theory'>FREE</td>
+            <td class='theory'>FREE</td>
+            <td class='theory'>FREE</td>
+        </tr>
+    </table>
+    <p style="text-align: center; font-size: 10px; color: #666;">
+        Generated by CMRIT Timetable Generation System | DSA-Based Adaptive Scheduling
+    </p>
+</body>
+</html>

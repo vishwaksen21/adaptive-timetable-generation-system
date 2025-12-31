@@ -1,52 +1,143 @@
-"""Verification script for adaptive timetable generation system"""
+"""Verification script for CMRIT Timetable Generation System"""
 
-import csv
-from modules.subjects import SUBJECTS
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from config.vtu_config import DAYS, PERIODS_PER_DAY
+from config.semester_subjects import get_subjects_for_semester, ALL_SEMESTER_SUBJECTS
+from config.faculty_rooms import FACULTY_LIST, ROOM_LIST
+from algorithms.dsa_scheduler import create_scheduler
+from algorithms.constraint_validator import ConstraintValidator
 
 def verify_system():
     """Verify all system components"""
-    print("=" * 60)
-    print("ADAPTIVE TIMETABLE GENERATION SYSTEM - VERIFICATION")
-    print("=" * 60)
+    print("=" * 80)
+    print("CMRIT TIMETABLE GENERATION SYSTEM - VERIFICATION")
+    print("=" * 80)
     
-    # 1. Check subjects configuration
-    print("\n1. SUBJECTS CONFIGURATION:")
-    print("-" * 60)
+    # 1. Check VTU configuration
+    print("\n1. VTU CONFIGURATION:")
+    print("-" * 80)
+    print(f"   Days per week: {len(DAYS)} ({', '.join(DAYS)})")
+    print(f"   Periods per day: {PERIODS_PER_DAY}")
+    print(f"   Total slots per week: {len(DAYS) * PERIODS_PER_DAY}")
+    
+    # 2. Check subjects configuration
+    print("\n2. SUBJECTS CONFIGURATION (Semester 5):")
+    print("-" * 80)
+    semester = 5
+    subjects = get_subjects_for_semester(semester)
     total_credits = 0
-    for subject, config in SUBJECTS.items():
-        credits = config.get("credits", 0)
-        labs = "Yes" if config.get("labs_per_week", 0) > 0 else "No"
+    total_hours = 0
+    for code, subject in sorted(subjects.items()):
+        credits = getattr(subject, 'credits', 0)
+        hours = getattr(subject, 'hours_per_week', 0)
         total_credits += credits
-        print(f"   {subject:15} | Credits: {credits} | Labs: {labs}")
-    print(f"   Total Credits per Section: {total_credits}")
+        total_hours += hours
+        print(f"   {subject.short_name:8} | {code:10} | {subject.subject_type:12} | Credits: {credits} | Hours: {hours}")
+    print(f"\n   Total Credits: {total_credits}")
+    print(f"   Total Hours Required: {total_hours}")
     
-    # 2. Check data files
-    print("\n2. DATA FILES VERIFICATION:")
-    print("-" * 60)
-    files = {
-        'data/teachers.csv': 'Teacher',
-        'data/rooms.csv': 'Room',
-        'data/sections.csv': 'Section',
-        'data/subjects.csv': 'Subject'
+    # 3. Check faculty
+    print("\n3. FACULTY VERIFICATION:")
+    print("-" * 80)
+    print(f"   Total Faculty: {len(FACULTY_LIST)}")
+    for fac_id, faculty in list(FACULTY_LIST.items())[:5]:
+        subjects_str = ', '.join(faculty.subjects[:3])
+        if len(faculty.subjects) > 3:
+            subjects_str += f" ... ({len(faculty.subjects)} total)"
+        print(f"   {faculty.short_name:6} | {faculty.name:25} | Subjects: {subjects_str}")
+    if len(FACULTY_LIST) > 5:
+        print(f"   ... and {len(FACULTY_LIST) - 5} more faculty members")
+    
+    # 4. Check rooms
+    print("\n4. ROOM VERIFICATION:")
+    print("-" * 80)
+    room_types = {}
+    for room_id, room in ROOM_LIST.items():
+        room_type = getattr(room, 'room_type', 'unknown')
+        room_types[room_type] = room_types.get(room_type, 0) + 1
+    print(f"   Total Rooms: {len(ROOM_LIST)}")
+    for room_type, count in sorted(room_types.items()):
+        print(f"   {room_type:20}: {count} rooms")
+    
+    # 5. Test scheduling
+    print("\n5. SCHEDULING TEST:")
+    print("-" * 80)
+    sections = ['AIDS-A', 'AIDS-B']
+    section_batches = {
+        'AIDS-A': ['A1', 'A2', 'A3'],
+        'AIDS-B': ['B1', 'B2', 'B3']
     }
     
-    for filepath, column in files.items():
-        try:
-            with open(filepath, 'r') as f:
-                reader = csv.DictReader(f)
-                data = [row[column] for row in reader]
-                print(f"   ✅ {filepath}: {len(data)} entries")
-        except Exception as e:
-            print(f"   ❌ {filepath}: Error - {e}")
+    config = {
+        'algorithm_type': 'constraint_satisfaction',
+        'debug_mode': False,
+        'timeout_seconds': 30,
+        'days': DAYS,
+        'periods_per_day': PERIODS_PER_DAY,
+        'max_consecutive_theory': 3,
+        'prefer_morning_labs': True,
+        'limit_first_period': 3
+    }
     
-    # 3. Check output requirements
-    print("\n3. TIMETABLE REQUIREMENTS:")
-    print("-" * 60)
-    print(f"   • Days per week: 5 (Mon-Fri)")
-    print(f"   • Periods per day: 6")
-    print(f"   • Total slots per week: 30")
-    print(f"   • Activities per section: 4 (Club, Sports, NSS, Yoga)")
-    print(f"   • Labs per subject: Physics, Chemistry, Programming, DBMS")
+    scheduler = create_scheduler(config)
+    subject_list = list(subjects.values())
+    faculty_list = list(FACULTY_LIST.values())
+    room_list = list(ROOM_LIST.values())
+    
+    print("   Generating timetable...")
+    success, timetable = scheduler.schedule_greedy(
+        sections=sections,
+        subjects=subject_list,
+        faculty_list=faculty_list,
+        room_list=room_list,
+        section_batches=section_batches
+    )
+    
+    if success:
+        print(f"   ✅ Timetable generated successfully!")
+        
+        # Validate constraints
+        validator = ConstraintValidator(config)
+        result = validator.validate(timetable, {s.code: s for s in subject_list}, sections)
+        
+        print(f"\n   Validation Results:")
+        print(f"   - Valid: {result.is_valid}")
+        print(f"   - Hard Violations: {len(result.hard_violations)}")
+        print(f"   - Soft Violations: {len(result.soft_violations)}")
+        print(f"   - Score: {result.score:.2f}")
+        
+        if result.hard_violations:
+            print(f"\n   Hard Violations:")
+            for v in result.hard_violations[:5]:
+                print(f"   - {v['type']}: {v['description']}")
+            if len(result.hard_violations) > 5:
+                print(f"   ... and {len(result.hard_violations) - 5} more violations")
+        
+        # Check slot utilization
+        for section in sections:
+            filled_slots = len(timetable.get(section, {}))
+            print(f"\n   {section}: {filled_slots}/{len(DAYS) * PERIODS_PER_DAY} slots filled")
+    else:
+        print(f"   ❌ Timetable generation failed!")
+        return False
+    
+    # 6. Summary
+    print("\n" + "=" * 80)
+    print("VERIFICATION COMPLETE")
+    print("=" * 80)
+    if success and result.is_valid and len(result.hard_violations) == 0:
+        print("✅ All checks passed! System is working correctly.")
+        return True
+    else:
+        print("⚠️  Some issues detected. Please review the output above.")
+        return False
+
+if __name__ == "__main__":
+    success = verify_system()
+    sys.exit(0 if success else 1)
     
     # 4. Check credit hours
     print("\n4. CREDIT HOUR DISTRIBUTION:")

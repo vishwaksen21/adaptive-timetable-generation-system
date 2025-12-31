@@ -31,10 +31,10 @@ from algorithms.constraint_validator import ConstraintValidator
 
 
 # ============================================================
-# VTU-STYLE TIMETABLE FORMATTING (College/Notice Board Format)
+# CMRIT-STYLE TIMETABLE FORMATTING (College/Notice Board Format)
 # ============================================================
 
-# Time slots including breaks (for VTU-style table)
+# Time slots including breaks (for CMRIT-style table)
 VTU_TIME_SLOTS = [
     "08:00-09:00",
     "09:00-10:00",
@@ -101,7 +101,7 @@ def display_subject(entries) -> str:
     # Single subject
     if len(codes) == 1:
         entry = entries[0]
-        return f"{entry.subject_short}\n{entry.faculty_name}"
+        return f"{entry.subject_short}"
     
     # Multiple subjects in same slot (parallel)
     return " / ".join(codes)
@@ -110,20 +110,19 @@ def display_subject(entries) -> str:
 def display_lab(entries) -> str:
     """Format lab display with batch information"""
     if not entries:
-        return ""
+        return "FREE"
     
     subject = entries[0].subject_short
-    faculty = entries[0].faculty_name
     batches = sorted(set(e.batch for e in entries if e.batch))
     
     if batches:
-        return f"{subject}\n{' / '.join(batches)}\n{faculty}"
-    return f"{subject}\n{faculty}"
+        return f"{subject}\n{' / '.join(batches)}"
+    return f"{subject}"
 
 
 def convert_to_vtu_table(timetable: dict, section: str, days: list) -> dict:
     """
-    Convert internal timetable to VTU-style table matrix (Day × Time)
+    Convert internal timetable to CMRIT-style table matrix (Day × Time)
     Returns: {day: [col0, col1, ..., col8]} with breaks included
     """
     table = {day: [""] * 9 for day in days}
@@ -157,17 +156,21 @@ def convert_to_vtu_table(timetable: dict, section: str, days: list) -> dict:
                 if any(e.is_lab_continuation for e in next_entries):
                     merged_cells[(day, col)] = 2
     
-    # Insert breaks
+    # Insert breaks and mark truly empty slots as FREE
     for day in table:
         table[day][2] = "SHORT\nBREAK"
         table[day][5] = "LUNCH\nBREAK"
+        # Mark empty slots as FREE (but keep breaks as-is)
+        for col_idx in [0, 1, 3, 4, 6, 7, 8]:  # Non-break columns
+            if table[day][col_idx] == "":
+                table[day][col_idx] = "FREE"
     
     return table, merged_cells
 
 
 def timetable_to_html(table: dict, section: str, merged_cells: dict = None) -> str:
     """
-    Generate VTU-style HTML table (suitable for PDF/printing)
+    Generate CMRIT-style HTML table (suitable for PDF/printing)
     """
     if merged_cells is None:
         merged_cells = {}
@@ -176,7 +179,7 @@ def timetable_to_html(table: dict, section: str, merged_cells: dict = None) -> s
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Timetable - {section}</title>
+    <title>CMRIT Timetable - {section}</title>
     <style>
         body {{ font-family: Arial, sans-serif; margin: 20px; }}
         h1 {{ text-align: center; color: #333; }}
@@ -296,7 +299,7 @@ def timetable_to_html(table: dict, section: str, merged_cells: dict = None) -> s
 
 
 def print_vtu_timetable(timetable: dict, section: str, days: list):
-    """Print timetable in VTU-style tabular format (console)"""
+    """Print timetable in CMRIT-style tabular format (console)"""
     table, _ = convert_to_vtu_table(timetable, section, days)
     
     print(f"\n{'='*120}")
@@ -334,7 +337,7 @@ def print_vtu_timetable(timetable: dict, section: str, days: list):
 
 
 def save_vtu_html_timetable(timetable: dict, section: str, days: list, output_path: str):
-    """Save timetable as VTU-style HTML file"""
+    """Save timetable as CMRIT-style HTML file"""
     table, merged_cells = convert_to_vtu_table(timetable, section, days)
     html = timetable_to_html(table, section, merged_cells)
     
@@ -367,13 +370,19 @@ def print_timetable_text(timetable: dict, section: str):
                 entries = timetable[section][slot_key]
                 if entries:
                     entry = entries[0]
-                    cell = f"{entry.subject_short}/{entry.faculty_name}"
+                    # Show only subject code, no faculty
+                    cell = f"{entry.subject_short}"
                     if entry.batch:
-                        cell = f"{entry.subject_short}({entry.batch})"
+                        # For labs with batches, show subject with batch info
+                        all_batches = sorted(set(e.batch for e in entries if e.batch))
+                        if len(all_batches) > 1:
+                            cell = f"{entry.subject_short}({'/'.join(all_batches)})"
+                        else:
+                            cell = f"{entry.subject_short}({entry.batch})"
                 else:
-                    cell = "-"
+                    cell = "FREE"
             else:
-                cell = "-"
+                cell = "FREE"
             
             row += f"| {cell:^13}"
         print(row)
@@ -483,7 +492,7 @@ def generate_timetable_cli(semester: int, branch: str, sections: list,
     
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     
-    # Save VTU-style HTML timetables for each section
+    # Save CMRIT-style HTML timetables for each section
     html_dir = f"{output_dir}/html"
     os.makedirs(html_dir, exist_ok=True)
     
@@ -542,10 +551,16 @@ def generate_timetable_cli(semester: int, branch: str, sections: list,
                             'subject_code': entry.subject_code,
                             'subject_short': entry.subject_short,
                             'subject_type': entry.subject_type,
-                            'faculty': entry.faculty_name,
-                            'room': entry.room_number,
                             'batch': entry.batch
                         })
+                else:
+                    # Mark empty slots as FREE
+                    slot_data['classes'].append({
+                        'subject_code': '',
+                        'subject_short': 'FREE',
+                        'subject_type': 'free',
+                        'batch': None
+                    })
                 
                 day_data['slots'].append(slot_data)
             

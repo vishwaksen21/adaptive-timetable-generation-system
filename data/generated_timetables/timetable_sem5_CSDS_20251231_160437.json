@@ -1,0 +1,608 @@
+{
+  "metadata": {
+    "semester": 5,
+    "branch": "CSDS",
+    "sections": [
+      "CSDS-C"
+    ],
+    "generated_at": "2025-12-31T16:04:37.210383",
+    "algorithm": "constraint_satisfaction",
+    "generation_time": 0.002424001693725586,
+    "success": true,
+    "validation": {
+      "is_valid": true,
+      "score": 985,
+      "hard_violations": 0,
+      "soft_violations": 2
+    }
+  },
+  "timetables": {
+    "CSDS-C": {
+      "days": [
+        {
+          "name": "Monday",
+          "slots": [
+            {
+              "period": 1,
+              "time": "08:00-09:00",
+              "classes": []
+            },
+            {
+              "period": 2,
+              "time": "09:00-10:00",
+              "classes": [
+                {
+                  "subject_code": "BCS501",
+                  "subject_short": "SEPM",
+                  "subject_type": "theory",
+                  "faculty": "RK",
+                  "room": "501",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 3,
+              "time": "10:20-11:20",
+              "classes": [
+                {
+                  "subject_code": "BCS502",
+                  "subject_short": "CN",
+                  "subject_type": "theory",
+                  "faculty": "RK",
+                  "room": "501",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 4,
+              "time": "11:20-12:20",
+              "classes": [
+                {
+                  "subject_code": "BCS503",
+                  "subject_short": "TOC",
+                  "subject_type": "theory",
+                  "faculty": "SB",
+                  "room": "501",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 5,
+              "time": "13:00-14:00",
+              "classes": [
+                {
+                  "subject_code": "BCSL506",
+                  "subject_short": "CNL",
+                  "subject_type": "lab",
+                  "faculty": "RK",
+                  "room": "CL1",
+                  "batch": "C1"
+                },
+                {
+                  "subject_code": "BCSL506",
+                  "subject_short": "CNL",
+                  "subject_type": "lab",
+                  "faculty": "MR",
+                  "room": "CL2",
+                  "batch": "C2"
+                },
+                {
+                  "subject_code": "BCSL506",
+                  "subject_short": "CNL",
+                  "subject_type": "lab",
+                  "faculty": "LD",
+                  "room": "CL3",
+                  "batch": "C3"
+                }
+              ]
+            },
+            {
+              "period": 6,
+              "time": "14:00-15:00",
+              "classes": [
+                {
+                  "subject_code": "BCSL506",
+                  "subject_short": "CNL",
+                  "subject_type": "lab",
+                  "faculty": "RK",
+                  "room": "CL1",
+                  "batch": "C1"
+                },
+                {
+                  "subject_code": "BCSL506",
+                  "subject_short": "CNL",
+                  "subject_type": "lab",
+                  "faculty": "MR",
+                  "room": "CL2",
+                  "batch": "C2"
+                },
+                {
+                  "subject_code": "BCSL506",
+                  "subject_short": "CNL",
+                  "subject_type": "lab",
+                  "faculty": "LD",
+                  "room": "CL3",
+                  "batch": "C3"
+                }
+              ]
+            },
+            {
+              "period": 7,
+              "time": "15:00-16:00",
+              "classes": [
+                {
+                  "subject_code": "BCS505A",
+                  "subject_short": "CV",
+                  "subject_type": "theory",
+                  "faculty": "MR",
+                  "room": "501",
+                  "batch": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Tuesday",
+          "slots": [
+            {
+              "period": 1,
+              "time": "08:00-09:00",
+              "classes": []
+            },
+            {
+              "period": 2,
+              "time": "09:00-10:00",
+              "classes": [
+                {
+                  "subject_code": "BRMK557",
+                  "subject_short": "RM",
+                  "subject_type": "theory",
+                  "faculty": "RG",
+                  "room": "501",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 3,
+              "time": "10:20-11:20",
+              "classes": [
+                {
+                  "subject_code": "9LPA5",
+                  "subject_short": "9LPA",
+                  "subject_type": "9lpa",
+                  "faculty": "9LPA-C",
+                  "room": "501",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 4,
+              "time": "11:20-12:20",
+              "classes": [
+                {
+                  "subject_code": "TYL5",
+                  "subject_short": "TYL",
+                  "subject_type": "tyl",
+                  "faculty": "TYL-C",
+                  "room": "501",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 5,
+              "time": "13:00-14:00",
+              "classes": [
+                {
+                  "subject_code": "BCSL507",
+                  "subject_short": "SEPL",
+                  "subject_type": "lab",
+                  "faculty": "SB",
+                  "room": "CL1",
+                  "batch": "C1"
+                },
+                {
+                  "subject_code": "BCSL507",
+                  "subject_short": "SEPL",
+                  "subject_type": "lab",
+                  "faculty": "DR",
+                  "room": "CL2",
+                  "batch": "C2"
+                },
+                {
+                  "subject_code": "BCSL507",
+                  "subject_short": "SEPL",
+                  "subject_type": "lab",
+                  "faculty": "SB",
+                  "room": "CL3",
+                  "batch": "C3"
+                }
+              ]
+            },
+            {
+              "period": 6,
+              "time": "14:00-15:00",
+              "classes": [
+                {
+                  "subject_code": "BCSL507",
+                  "subject_short": "SEPL",
+                  "subject_type": "lab",
+                  "faculty": "SB",
+                  "room": "CL1",
+                  "batch": "C1"
+                },
+                {
+                  "subject_code": "BCSL507",
+                  "subject_short": "SEPL",
+                  "subject_type": "lab",
+                  "faculty": "DR",
+                  "room": "CL2",
+                  "batch": "C2"
+                },
+                {
+                  "subject_code": "BCSL507",
+                  "subject_short": "SEPL",
+                  "subject_type": "lab",
+                  "faculty": "SB",
+                  "room": "CL3",
+                  "batch": "C3"
+                }
+              ]
+            },
+            {
+              "period": 7,
+              "time": "15:00-16:00",
+              "classes": []
+            }
+          ]
+        },
+        {
+          "name": "Wednesday",
+          "slots": [
+            {
+              "period": 1,
+              "time": "08:00-09:00",
+              "classes": []
+            },
+            {
+              "period": 2,
+              "time": "09:00-10:00",
+              "classes": []
+            },
+            {
+              "period": 3,
+              "time": "10:20-11:20",
+              "classes": [
+                {
+                  "subject_code": "BCS501",
+                  "subject_short": "SEPM",
+                  "subject_type": "theory",
+                  "faculty": "RK",
+                  "room": "501",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 4,
+              "time": "11:20-12:20",
+              "classes": [
+                {
+                  "subject_code": "BCS502",
+                  "subject_short": "CN",
+                  "subject_type": "theory",
+                  "faculty": "RK",
+                  "room": "501",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 5,
+              "time": "13:00-14:00",
+              "classes": [
+                {
+                  "subject_code": "BCS503",
+                  "subject_short": "TOC",
+                  "subject_type": "theory",
+                  "faculty": "SB",
+                  "room": "501",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 6,
+              "time": "14:00-15:00",
+              "classes": [
+                {
+                  "subject_code": "YOGA5",
+                  "subject_short": "YOGA",
+                  "subject_type": "yoga",
+                  "faculty": "YOGA-I",
+                  "room": "AR1",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 7,
+              "time": "15:00-16:00",
+              "classes": [
+                {
+                  "subject_code": "CLUB5",
+                  "subject_short": "CLUB",
+                  "subject_type": "club",
+                  "faculty": "CLUB-C",
+                  "room": "AR1",
+                  "batch": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Thursday",
+          "slots": [
+            {
+              "period": 1,
+              "time": "08:00-09:00",
+              "classes": []
+            },
+            {
+              "period": 2,
+              "time": "09:00-10:00",
+              "classes": []
+            },
+            {
+              "period": 3,
+              "time": "10:20-11:20",
+              "classes": [
+                {
+                  "subject_code": "BCS505A",
+                  "subject_short": "CV",
+                  "subject_type": "theory",
+                  "faculty": "MR",
+                  "room": "501",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 4,
+              "time": "11:20-12:20",
+              "classes": [
+                {
+                  "subject_code": "BRMK557",
+                  "subject_short": "RM",
+                  "subject_type": "theory",
+                  "faculty": "RG",
+                  "room": "501",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 5,
+              "time": "13:00-14:00",
+              "classes": [
+                {
+                  "subject_code": "BCS508",
+                  "subject_short": "ES",
+                  "subject_type": "audit",
+                  "faculty": "PS",
+                  "room": "501",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 6,
+              "time": "14:00-15:00",
+              "classes": [
+                {
+                  "subject_code": "BCMP508",
+                  "subject_short": "MP",
+                  "subject_type": "mini_project",
+                  "faculty": "DR",
+                  "room": "CL1",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 7,
+              "time": "15:00-16:00",
+              "classes": [
+                {
+                  "subject_code": "BCMP508",
+                  "subject_short": "MP",
+                  "subject_type": "mini_project",
+                  "faculty": "DR",
+                  "room": "CL1",
+                  "batch": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Friday",
+          "slots": [
+            {
+              "period": 1,
+              "time": "08:00-09:00",
+              "classes": []
+            },
+            {
+              "period": 2,
+              "time": "09:00-10:00",
+              "classes": [
+                {
+                  "subject_code": "BCS501",
+                  "subject_short": "SEPM",
+                  "subject_type": "theory",
+                  "faculty": "RK",
+                  "room": "501",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 3,
+              "time": "10:20-11:20",
+              "classes": [
+                {
+                  "subject_code": "BCS502",
+                  "subject_short": "CN",
+                  "subject_type": "theory",
+                  "faculty": "RK",
+                  "room": "501",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 4,
+              "time": "11:20-12:20",
+              "classes": [
+                {
+                  "subject_code": "BCS503",
+                  "subject_short": "TOC",
+                  "subject_type": "theory",
+                  "faculty": "SB",
+                  "room": "501",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 5,
+              "time": "13:00-14:00",
+              "classes": [
+                {
+                  "subject_code": "9LPA5",
+                  "subject_short": "9LPA",
+                  "subject_type": "9lpa",
+                  "faculty": "9LPA-C",
+                  "room": "501",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 6,
+              "time": "14:00-15:00",
+              "classes": [
+                {
+                  "subject_code": "TYL5",
+                  "subject_short": "TYL",
+                  "subject_type": "tyl",
+                  "faculty": "TYL-C",
+                  "room": "501",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 7,
+              "time": "15:00-16:00",
+              "classes": []
+            }
+          ]
+        },
+        {
+          "name": "Saturday",
+          "slots": [
+            {
+              "period": 1,
+              "time": "08:00-09:00",
+              "classes": []
+            },
+            {
+              "period": 2,
+              "time": "09:00-10:00",
+              "classes": [
+                {
+                  "subject_code": "BCS505A",
+                  "subject_short": "CV",
+                  "subject_type": "theory",
+                  "faculty": "MR",
+                  "room": "501",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 3,
+              "time": "10:20-11:20",
+              "classes": [
+                {
+                  "subject_code": "BRMK557",
+                  "subject_short": "RM",
+                  "subject_type": "theory",
+                  "faculty": "RG",
+                  "room": "501",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 4,
+              "time": "11:20-12:20",
+              "classes": [
+                {
+                  "subject_code": "BCS501",
+                  "subject_short": "SEPM",
+                  "subject_type": "theory",
+                  "faculty": "RK",
+                  "room": "501",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 5,
+              "time": "13:00-14:00",
+              "classes": [
+                {
+                  "subject_code": "BCS502",
+                  "subject_short": "CN",
+                  "subject_type": "theory",
+                  "faculty": "RK",
+                  "room": "501",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 6,
+              "time": "14:00-15:00",
+              "classes": [
+                {
+                  "subject_code": "BCS503",
+                  "subject_short": "TOC",
+                  "subject_type": "theory",
+                  "faculty": "SB",
+                  "room": "501",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 7,
+              "time": "15:00-16:00",
+              "classes": []
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,607 @@
+{
+  "metadata": {
+    "semester": 5,
+    "branch": "AIDS",
+    "sections": [
+      "AIDS-A"
+    ],
+    "generated_at": "2025-12-31T16:10:25.909173",
+    "algorithm": "constraint_satisfaction",
+    "generation_time": 0.0024743080139160156,
+    "success": true,
+    "validation": {
+      "is_valid": true,
+      "score": 990,
+      "hard_violations": 0,
+      "soft_violations": 2
+    }
+  },
+  "timetables": {
+    "AIDS-A": {
+      "days": [
+        {
+          "name": "Monday",
+          "slots": [
+            {
+              "period": 1,
+              "time": "08:00-09:00",
+              "classes": [
+                {
+                  "subject_code": "BCS501",
+                  "subject_short": "SEPM",
+                  "subject_type": "theory",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 2,
+              "time": "09:00-10:00",
+              "classes": [
+                {
+                  "subject_code": "BCS502",
+                  "subject_short": "CN",
+                  "subject_type": "theory",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 3,
+              "time": "10:20-11:20",
+              "classes": [
+                {
+                  "subject_code": "BCS503",
+                  "subject_short": "TOC",
+                  "subject_type": "theory",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 4,
+              "time": "11:20-12:20",
+              "classes": [
+                {
+                  "subject_code": "BCS505A",
+                  "subject_short": "CV",
+                  "subject_type": "theory",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 5,
+              "time": "13:00-14:00",
+              "classes": [
+                {
+                  "subject_code": "BCSL506",
+                  "subject_short": "CNL",
+                  "subject_type": "lab",
+                  "batch": "A1"
+                },
+                {
+                  "subject_code": "BCSL506",
+                  "subject_short": "CNL",
+                  "subject_type": "lab",
+                  "batch": "A2"
+                },
+                {
+                  "subject_code": "BCSL506",
+                  "subject_short": "CNL",
+                  "subject_type": "lab",
+                  "batch": "A3"
+                }
+              ]
+            },
+            {
+              "period": 6,
+              "time": "14:00-15:00",
+              "classes": [
+                {
+                  "subject_code": "BCSL506",
+                  "subject_short": "CNL",
+                  "subject_type": "lab",
+                  "batch": "A1"
+                },
+                {
+                  "subject_code": "BCSL506",
+                  "subject_short": "CNL",
+                  "subject_type": "lab",
+                  "batch": "A2"
+                },
+                {
+                  "subject_code": "BCSL506",
+                  "subject_short": "CNL",
+                  "subject_type": "lab",
+                  "batch": "A3"
+                }
+              ]
+            },
+            {
+              "period": 7,
+              "time": "15:00-16:00",
+              "classes": [
+                {
+                  "subject_code": "",
+                  "subject_short": "FREE",
+                  "subject_type": "free",
+                  "batch": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Tuesday",
+          "slots": [
+            {
+              "period": 1,
+              "time": "08:00-09:00",
+              "classes": [
+                {
+                  "subject_code": "",
+                  "subject_short": "FREE",
+                  "subject_type": "free",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 2,
+              "time": "09:00-10:00",
+              "classes": [
+                {
+                  "subject_code": "BRMK557",
+                  "subject_short": "RM",
+                  "subject_type": "theory",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 3,
+              "time": "10:20-11:20",
+              "classes": [
+                {
+                  "subject_code": "9LPA5",
+                  "subject_short": "9LPA",
+                  "subject_type": "9lpa",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 4,
+              "time": "11:20-12:20",
+              "classes": [
+                {
+                  "subject_code": "TYL5",
+                  "subject_short": "TYL",
+                  "subject_type": "tyl",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 5,
+              "time": "13:00-14:00",
+              "classes": [
+                {
+                  "subject_code": "BCSL507",
+                  "subject_short": "SEPL",
+                  "subject_type": "lab",
+                  "batch": "A1"
+                },
+                {
+                  "subject_code": "BCSL507",
+                  "subject_short": "SEPL",
+                  "subject_type": "lab",
+                  "batch": "A2"
+                },
+                {
+                  "subject_code": "BCSL507",
+                  "subject_short": "SEPL",
+                  "subject_type": "lab",
+                  "batch": "A3"
+                }
+              ]
+            },
+            {
+              "period": 6,
+              "time": "14:00-15:00",
+              "classes": [
+                {
+                  "subject_code": "BCSL507",
+                  "subject_short": "SEPL",
+                  "subject_type": "lab",
+                  "batch": "A1"
+                },
+                {
+                  "subject_code": "BCSL507",
+                  "subject_short": "SEPL",
+                  "subject_type": "lab",
+                  "batch": "A2"
+                },
+                {
+                  "subject_code": "BCSL507",
+                  "subject_short": "SEPL",
+                  "subject_type": "lab",
+                  "batch": "A3"
+                }
+              ]
+            },
+            {
+              "period": 7,
+              "time": "15:00-16:00",
+              "classes": [
+                {
+                  "subject_code": "",
+                  "subject_short": "FREE",
+                  "subject_type": "free",
+                  "batch": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Wednesday",
+          "slots": [
+            {
+              "period": 1,
+              "time": "08:00-09:00",
+              "classes": [
+                {
+                  "subject_code": "",
+                  "subject_short": "FREE",
+                  "subject_type": "free",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 2,
+              "time": "09:00-10:00",
+              "classes": [
+                {
+                  "subject_code": "BCS501",
+                  "subject_short": "SEPM",
+                  "subject_type": "theory",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 3,
+              "time": "10:20-11:20",
+              "classes": [
+                {
+                  "subject_code": "BCS502",
+                  "subject_short": "CN",
+                  "subject_type": "theory",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 4,
+              "time": "11:20-12:20",
+              "classes": [
+                {
+                  "subject_code": "BCS503",
+                  "subject_short": "TOC",
+                  "subject_type": "theory",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 5,
+              "time": "13:00-14:00",
+              "classes": [
+                {
+                  "subject_code": "BRMK557",
+                  "subject_short": "RM",
+                  "subject_type": "theory",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 6,
+              "time": "14:00-15:00",
+              "classes": [
+                {
+                  "subject_code": "YOGA5",
+                  "subject_short": "YOGA",
+                  "subject_type": "yoga",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 7,
+              "time": "15:00-16:00",
+              "classes": [
+                {
+                  "subject_code": "CLUB5",
+                  "subject_short": "CLUB",
+                  "subject_type": "club",
+                  "batch": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Thursday",
+          "slots": [
+            {
+              "period": 1,
+              "time": "08:00-09:00",
+              "classes": [
+                {
+                  "subject_code": "",
+                  "subject_short": "FREE",
+                  "subject_type": "free",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 2,
+              "time": "09:00-10:00",
+              "classes": [
+                {
+                  "subject_code": "BCS505A",
+                  "subject_short": "CV",
+                  "subject_type": "theory",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 3,
+              "time": "10:20-11:20",
+              "classes": [
+                {
+                  "subject_code": "BCS508",
+                  "subject_short": "ES",
+                  "subject_type": "audit",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 4,
+              "time": "11:20-12:20",
+              "classes": [
+                {
+                  "subject_code": "BCS501",
+                  "subject_short": "SEPM",
+                  "subject_type": "theory",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 5,
+              "time": "13:00-14:00",
+              "classes": [
+                {
+                  "subject_code": "BCS502",
+                  "subject_short": "CN",
+                  "subject_type": "theory",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 6,
+              "time": "14:00-15:00",
+              "classes": [
+                {
+                  "subject_code": "BCMP508",
+                  "subject_short": "MP",
+                  "subject_type": "mini_project",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 7,
+              "time": "15:00-16:00",
+              "classes": [
+                {
+                  "subject_code": "BCMP508",
+                  "subject_short": "MP",
+                  "subject_type": "mini_project",
+                  "batch": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Friday",
+          "slots": [
+            {
+              "period": 1,
+              "time": "08:00-09:00",
+              "classes": [
+                {
+                  "subject_code": "",
+                  "subject_short": "FREE",
+                  "subject_type": "free",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 2,
+              "time": "09:00-10:00",
+              "classes": [
+                {
+                  "subject_code": "BCS503",
+                  "subject_short": "TOC",
+                  "subject_type": "theory",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 3,
+              "time": "10:20-11:20",
+              "classes": [
+                {
+                  "subject_code": "9LPA5",
+                  "subject_short": "9LPA",
+                  "subject_type": "9lpa",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 4,
+              "time": "11:20-12:20",
+              "classes": [
+                {
+                  "subject_code": "TYL5",
+                  "subject_short": "TYL",
+                  "subject_type": "tyl",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 5,
+              "time": "13:00-14:00",
+              "classes": [
+                {
+                  "subject_code": "BRMK557",
+                  "subject_short": "RM",
+                  "subject_type": "theory",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 6,
+              "time": "14:00-15:00",
+              "classes": [
+                {
+                  "subject_code": "BCS501",
+                  "subject_short": "SEPM",
+                  "subject_type": "theory",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 7,
+              "time": "15:00-16:00",
+              "classes": [
+                {
+                  "subject_code": "",
+                  "subject_short": "FREE",
+                  "subject_type": "free",
+                  "batch": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Saturday",
+          "slots": [
+            {
+              "period": 1,
+              "time": "08:00-09:00",
+              "classes": [
+                {
+                  "subject_code": "",
+                  "subject_short": "FREE",
+                  "subject_type": "free",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 2,
+              "time": "09:00-10:00",
+              "classes": [
+                {
+                  "subject_code": "BCS502",
+                  "subject_short": "CN",
+                  "subject_type": "theory",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 3,
+              "time": "10:20-11:20",
+              "classes": [
+                {
+                  "subject_code": "BCS503",
+                  "subject_short": "TOC",
+                  "subject_type": "theory",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 4,
+              "time": "11:20-12:20",
+              "classes": [
+                {
+                  "subject_code": "BCS505A",
+                  "subject_short": "CV",
+                  "subject_type": "theory",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 5,
+              "time": "13:00-14:00",
+              "classes": [
+                {
+                  "subject_code": "",
+                  "subject_short": "FREE",
+                  "subject_type": "free",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 6,
+              "time": "14:00-15:00",
+              "classes": [
+                {
+                  "subject_code": "",
+                  "subject_short": "FREE",
+                  "subject_type": "free",
+                  "batch": null
+                }
+              ]
+            },
+            {
+              "period": 7,
+              "time": "15:00-16:00",
+              "classes": [
+                {
+                  "subject_code": "",
+                  "subject_short": "FREE",
+                  "subject_type": "free",
+                  "batch": null
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
