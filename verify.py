@@ -138,39 +138,3 @@ def verify_system():
 if __name__ == "__main__":
     success = verify_system()
     sys.exit(0 if success else 1)
-    
-    # 4. Check credit hours
-    print("\n4. CREDIT HOUR DISTRIBUTION:")
-    print("-" * 60)
-    theory_hours = sum(SUBJECTS[s]["credits"] for s in SUBJECTS)
-    lab_hours = sum(2 for s in SUBJECTS if SUBJECTS[s].get("labs_per_week", 0) > 0)  # 2 hrs per lab
-    activity_hours = 2 + 2 + 1 + 1  # Club(2) + Sports(2) + NSS(1) + Yoga(1)
-    
-    print(f"   Theory Classes per Section: {theory_hours} hours/week")
-    print(f"   Lab Classes (total): {lab_hours} hours/week")
-    print(f"   Activities (total): {activity_hours} hours/week")
-    print(f"   Total: {theory_hours + lab_hours + activity_hours} hours/week")
-    
-    # 5. Check output files
-    print("\n5. OUTPUT FILES:")
-    print("-" * 60)
-    import os
-    output_files = [
-        'data/final_timetable.csv',
-        'data/section_timetables'
-    ]
-    
-    for filepath in output_files:
-        if os.path.exists(filepath):
-            if os.path.isdir(filepath):
-                sections_count = len([f for f in os.listdir(filepath) if f.endswith('.txt')])
-                print(f"   ✅ {filepath}: {sections_count} section timetables")
-            else:
-                size = os.path.getsize(filepath)
-                print(f"   ✅ {filepath}: {size} bytes")
-        else:
-            print(f"   ⚠️  {filepath}: Not yet created")
-    
-    print("\n" + "=" * 60)
-    print("VERIFICATION COMPLETE!")
-    print("=" * 60)
